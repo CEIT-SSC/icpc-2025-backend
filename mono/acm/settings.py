@@ -12,10 +12,16 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 from datetime import timedelta
 from pathlib import Path
 import environ
-env = environ.Env()
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+env = environ.Env()
+ENV_FILE = BASE_DIR / ".env"
+if ENV_FILE.exists():
+    environ.Env.read_env(str(ENV_FILE))
+else:
+    print(f"[settings] WARNING: .env not found at {ENV_FILE}")
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
@@ -40,6 +46,8 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     "drf_spectacular",
     "drf_spectacular_sidecar",
+    'rest_framework',
+    'django_filters',
     'accounts',
     'notification',
     'django_celery_results',
@@ -71,7 +79,7 @@ EMAIL_HOST = env("EMAIL_HOST", default="smtp.gmail.com")
 EMAIL_PORT = env.int("EMAIL_PORT", default=587)
 EMAIL_HOST_USER = env("EMAIL_HOST_USER", default="your@gmail.com")
 EMAIL_HOST_PASSWORD = env("EMAIL_HOST_PASSWORD", default="app-password-or-secret")
-EMAIL_USE_TLS = env.bool("EMAIL_USE_TLS", default=True)
+EMAIL_USE_TLS = env.bool("EMAIL_USE_SSL", default=True)
 EMAIL_DEFAULT_FROM = env("EMAIL_DEFAULT_FROM", default="ACM <no-reply@yourdomain>")
 
 

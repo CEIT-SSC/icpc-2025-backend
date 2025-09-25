@@ -30,8 +30,7 @@ class Course(models.Model):
     classes_count = models.PositiveIntegerField(default=0)
 
     capacity = models.PositiveIntegerField(default=0)
-    price = models.DecimalField(max_digits=10, decimal_places=2, validators=[MinValueValidator(0)])
-    currency = models.CharField(max_length=8, default="USD")
+    price = models.IntegerField(validators=[MinValueValidator(0)])
 
     slug = models.SlugField(max_length=220, unique=True, blank=True)
     is_active = models.BooleanField(default=True)

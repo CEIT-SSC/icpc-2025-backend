@@ -6,6 +6,10 @@ class SingleEmailSerializer(serializers.Serializer):
     template_code = serializers.CharField()
     context = serializers.JSONField(default=dict)
 
+class HealthResponseSerializer(serializers.Serializer):
+    ok = serializers.BooleanField()
+    app = serializers.CharField()
+
 class OtpRequestSerializer(serializers.Serializer):
     to = serializers.EmailField()
     code = serializers.CharField()

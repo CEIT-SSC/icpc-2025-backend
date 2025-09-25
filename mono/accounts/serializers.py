@@ -13,7 +13,6 @@ class SignupStartSerializer(serializers.Serializer):
 
 class LoginStartSerializer(serializers.Serializer):
     email = serializers.EmailField()
-    password = serializers.CharField(write_only=True)
 
 class OtpVerifySerializer(serializers.Serializer):
     token = serializers.CharField()

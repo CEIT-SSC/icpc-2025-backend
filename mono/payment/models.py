@@ -18,11 +18,10 @@ class Payment(models.Model):
     target_id = models.PositiveIntegerField()
 
     amount = models.PositiveIntegerField()  # in Tomans/Rials as per your use
-    currency = models.CharField(max_length=8, default="IRR")
 
     status = models.CharField(max_length=24, choices=Status.choices, default=Status.PENDING)
 
-    # Zarinpal fields
+    # Zarinpal field
     authority = models.CharField(max_length=64, blank=True, db_index=True)
     ref_id = models.CharField(max_length=64, blank=True)
     card_pan = models.CharField(max_length=32, blank=True)

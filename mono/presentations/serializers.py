@@ -23,7 +23,7 @@ class CourseSerializer(serializers.ModelSerializer):
         fields = (
             "id", "name", "subtitle", "description", "presenters",
             "start_date", "online", "onsite", "classes_count",
-            "capacity", "price", "currency", "slug", "is_active",
+            "capacity", "price", "slug", "is_active",
             "schedule",
         )
 

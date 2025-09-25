@@ -5,7 +5,6 @@ class InitiateSerializer(serializers.Serializer):
     target_type = serializers.ChoiceField(choices=Payment.TargetType.choices)
     target_id = serializers.IntegerField()
     amount = serializers.IntegerField(min_value=1)
-    currency = serializers.CharField(required=False, allow_blank=True, default="IRR")
     description = serializers.CharField(required=False, allow_blank=True)
 
 class InitiateResponseSerializer(serializers.Serializer):
@@ -19,4 +18,4 @@ class VerifySerializer(serializers.Serializer):
 class PaymentSerializer(serializers.ModelSerializer):
     class Meta:
         model = Payment
-        fields = ("id","status","authority","ref_id","amount","currency","zarinpal_code","zarinpal_message","target_type","target_id")
+        fields = ("id","status","authority","ref_id","amount","zarinpal_code","zarinpal_message","target_type","target_id")

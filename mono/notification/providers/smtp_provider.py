@@ -23,6 +23,8 @@ class SmtpEmailProvider(EmailProvider):
             msg.attach(MIMEText(text, "plain", _charset="utf-8"))
         msg.attach(MIMEText(html, "html", _charset="utf-8"))
 
+        print(self.host, self.port, self.user, self.password, self.use_tls, self.from_addr)
+
         server = smtplib.SMTP(self.host, self.port, timeout=20)
         try:
             if self.use_tls:

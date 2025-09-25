@@ -1,14 +1,12 @@
-from django.shortcuts import render
-
-# Create your views here.
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.db import transaction
-from rest_framework import status, permissions
+from rest_framework import status, permissions, serializers
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated
 from rest_framework_simplejwt.tokens import RefreshToken
+from drf_spectacular.utils import extend_schema, OpenApiResponse  # <-- add this
 
 from .serializers import (
     SignupStartSerializer, LoginStartSerializer, OtpVerifySerializer,
@@ -20,7 +18,19 @@ from .services import start_signup, start_login, issue_tokens
 
 User = get_user_model()
 
-# Cookie helpers
+# ----- Small response serializers so Swagger shows bodies -----
+class OTPTokenResponseSerializer(serializers.Serializer):
+    otp_token = serializers.CharField()
+
+class TokenWithUserResponseSerializer(serializers.Serializer):
+    access = serializers.CharField()
+    user = UserSerializer()
+
+class AccessTokenOnlySerializer(serializers.Serializer):
+    access = serializers.CharField()
+
+# --------------------------------------------------------------
+
 COOKIE_CONF = settings.REFRESH_TOKEN_COOKIE
 
 def set_refresh_cookie(resp: Response, refresh_token: str):
@@ -36,6 +46,11 @@ def set_refresh_cookie(resp: Response, refresh_token: str):
 class SignupStartView(APIView):
     permission_classes = []
 
+    @extend_schema(
+        request=SignupStartSerializer,
+        responses={201: OTPTokenResponseSerializer},
+        description="Begin signup via OTP. Sends OTP and returns an opaque otp_token."
+    )
     def post(self, request):
         s = SignupStartSerializer(data=request.data)
         s.is_valid(raise_exception=True)
@@ -45,6 +60,14 @@ class SignupStartView(APIView):
 class SignupVerifyView(APIView):
     permission_classes = []
 
+    @extend_schema(
+        request=OtpVerifySerializer,
+        responses={
+            200: TokenWithUserResponseSerializer,
+            400: OpenApiResponse(description="Invalid or expired OTP"),
+        },
+        description="Verify signup OTP. On success: marks email verified, returns access token and sets refresh cookie."
+    )
     @transaction.atomic
     def post(self, request):
         s = OtpVerifySerializer(data=request.data)
@@ -63,15 +86,31 @@ class SignupVerifyView(APIView):
 class LoginStartView(APIView):
     permission_classes = []
 
+    @extend_schema(
+        request=LoginStartSerializer,
+        responses={200: OTPTokenResponseSerializer},
+        description="Begin login via OTP. Sends OTP and returns an opaque otp_token."
+    )
     def post(self, request):
         s = LoginStartSerializer(data=request.data)
         s.is_valid(raise_exception=True)
-        token = start_login(**s.validated_data)
+        try:
+            token = start_login(**s.validated_data)
+        except ValueError as e:
+            return Response({"detail": str(e)}, status=400)
         return Response({"otp_token": token}, status=200)
 
 class LoginVerifyView(APIView):
     permission_classes = []
 
+    @extend_schema(
+        request=OtpVerifySerializer,
+        responses={
+            200: TokenWithUserResponseSerializer,
+            400: OpenApiResponse(description="Invalid or expired OTP"),
+        },
+        description="Verify login OTP. Returns access token and sets rotated refresh cookie."
+    )
     def post(self, request):
         s = OtpVerifySerializer(data=request.data)
         s.is_valid(raise_exception=True)
@@ -80,7 +119,6 @@ class LoginVerifyView(APIView):
             return Response({"detail": "Invalid or expired OTP"}, status=400)
         user = User.objects.get(id=rec.user_id)
         if not user.is_email_verified:
-            # if user somehow wasn't verified, treat successful OTP as verification
             user.is_email_verified = True
             user.save(update_fields=["is_email_verified"])
         access, refresh = issue_tokens(user)
@@ -91,8 +129,16 @@ class LoginVerifyView(APIView):
 class RefreshView(APIView):
     permission_classes = []
 
+    @extend_schema(
+        request=None,
+        responses={
+            200: AccessTokenOnlySerializer,
+            401: OpenApiResponse(description="No/invalid refresh token"),
+        },
+        description="Rotate refresh token from cookie and return a new access token."
+    )
     def post(self, request):
-        token = request.COOKIES.get(COOKIE_CONF["key"])  # read from cookie
+        token = request.COOKIES.get(COOKIE_CONF["key"])
         if not token:
             return Response({"detail": "No refresh token"}, status=401)
         try:
@@ -100,7 +146,6 @@ class RefreshView(APIView):
         except Exception:
             return Response({"detail": "Invalid refresh"}, status=401)
         access = str(rt.access_token)
-        # rotate + blacklist
         rt.blacklist()
         new_rt = RefreshToken.for_user(User.objects.get(id=rt["user_id"]))
         resp = Response({"access": access}, status=200)
@@ -110,8 +155,13 @@ class RefreshView(APIView):
 class LogoutView(APIView):
     permission_classes = [IsAuthenticated]
 
+    @extend_schema(
+        request=None,
+        responses={204: OpenApiResponse(description="Logged out; refresh cookie cleared")},
+        description="Blacklist current refresh (from cookie) and clear it."
+    )
     def post(self, request):
-        token = request.COOKIES.get(COOKIE_CONF["key"])  # refresh in cookie
+        token = request.COOKIES.get(COOKIE_CONF["key"])
         resp = Response(status=204)
         if token:
             try:
@@ -124,9 +174,19 @@ class LogoutView(APIView):
 class MeView(APIView):
     permission_classes = [IsAuthenticated]
 
+    @extend_schema(
+        request=None,
+        responses={200: UserSerializer},
+        description="Get current user profile."
+    )
     def get(self, request):
         return Response(UserSerializer(request.user).data)
 
+    @extend_schema(
+        request=UserSerializer,
+        responses={200: UserSerializer},
+        description="Partial update current user profile."
+    )
     def patch(self, request):
         s = UserSerializer(request.user, data=request.data, partial=True)
         s.is_valid(raise_exception=True)
@@ -136,10 +196,20 @@ class MeView(APIView):
 class ExtraDataView(APIView):
     permission_classes = [IsAuthenticated]
 
+    @extend_schema(
+        request=None,
+        responses={200: UserExtraDataSerializer},
+        description="Get current user's extra data."
+    )
     def get(self, request):
         extra, _ = UserExtraData.objects.get_or_create(user=request.user)
         return Response(UserExtraDataSerializer(extra).data)
 
+    @extend_schema(
+        request=UserExtraDataSerializer,
+        responses={200: UserExtraDataSerializer},
+        description="Replace current user's extra data."
+    )
     def put(self, request):
         extra, _ = UserExtraData.objects.get_or_create(user=request.user)
         s = UserExtraDataSerializer(extra, data=request.data, partial=False)
@@ -147,6 +217,11 @@ class ExtraDataView(APIView):
         s.save()
         return Response(s.data)
 
+    @extend_schema(
+        request=UserExtraDataSerializer,
+        responses={200: UserExtraDataSerializer},
+        description="Patch current user's extra data."
+    )
     def patch(self, request):
         extra, _ = UserExtraData.objects.get_or_create(user=request.user)
         s = UserExtraDataSerializer(extra, data=request.data, partial=True)

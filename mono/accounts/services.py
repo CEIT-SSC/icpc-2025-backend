@@ -28,12 +28,10 @@ def start_signup(email: str, password: str, first_name: str = "", last_name: str
     return token
 
 
-def start_login(email: str, password: str) -> str:
+def start_login(email: str) -> str:
     try:
         user = User.objects.get(email=email)
     except User.DoesNotExist:
-        raise ValueError("Invalid credentials")
-    if not user.check_password(password):
         raise ValueError("Invalid credentials")
     if not user.is_active:
         raise ValueError("Account disabled")

@@ -9,7 +9,7 @@ class ScheduleInline(admin.TabularInline):
 
 @admin.register(Course)
 class CourseAdmin(admin.ModelAdmin):
-    list_display = ("name", "subtitle", "capacity", "price", "currency", "is_active")
+    list_display = ("name", "subtitle", "capacity", "price", "is_active")
     search_fields = ("name", "subtitle")
     inlines = [ScheduleInline]
     filter_horizontal = ("presenters",)
