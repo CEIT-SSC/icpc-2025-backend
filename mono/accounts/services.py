@@ -4,10 +4,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from .models import User
 from .utils.otp import create_otp
 
-# ---- Notification bridge (email/SMS) ----
-# Implement this in your notification app:
-# def send_otp(destination: str, code: str, channel: str = "email") -> None: ...
-from notification.services import send_otp  # you implement this function
+from notification.services import send_otp
 
 
 def start_signup(email: str, password: str, first_name: str = "", last_name: str = "", phone_number: str = "") -> str:

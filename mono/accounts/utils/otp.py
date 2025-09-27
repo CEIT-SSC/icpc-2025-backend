@@ -30,7 +30,6 @@ def hash_code(code: str) -> str:
     return hmac.new(settings.OTP_SECRET.encode(), code.encode(), sha256).hexdigest()
 
 def create_otp(email: str, intent: str, user_id: int | None) -> tuple[str, str]:
-    """Returns (token, code). Store only the hashed code."""
     # rate limiting
     bucket = _rate_key(email)
     current = cache.get(bucket, 0)
@@ -46,7 +45,6 @@ def create_otp(email: str, intent: str, user_id: int | None) -> tuple[str, str]:
         "intent": intent,
         "user_id": user_id,
     }
-    # prevent spam: short resend window guard
     cache.set(_key(token), data, timeout=OTP_TTL)
     return token, code
 
