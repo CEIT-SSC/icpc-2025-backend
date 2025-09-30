@@ -47,8 +47,8 @@ jobs:
       - name: SSH deploy
         uses: appleboy/ssh-action@v1.0.3
         with:
-          host: ${{ secrets.SSH_HOST }}
-          username: ${{ secrets.SSH_USER }}
+          host: aut-icpc.ir
+          username: app
           key: ${{ secrets.SSH_KEY }}
           script_stop: true
           envs: SERVER_PATH
