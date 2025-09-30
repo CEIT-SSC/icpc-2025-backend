@@ -55,6 +55,7 @@ INSTALLED_APPS = [
     'presentations',
     'competitions',
     'payment',
+    'storages'
 ]
 
 ZARINPAL_MERCHANT_ID = env("ZARINPAL_MERCHANT_ID", default="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx")
@@ -215,8 +216,50 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
-STATIC_URL = '/static/'
-STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles")
+USE_CDN_STATIC = env.bool("USE_CDN_STATIC", default=not DEBUG)  # toggle via env
+
+if USE_CDN_STATIC:
+    STATICFILES_STORAGE = "storages.backends.s3boto3.S3Boto3Storage"
+
+    AWS_STORAGE_BUCKET_NAME = env("AWS_STORAGE_BUCKET_NAME")
+    AWS_ACCESS_KEY_ID = env("AWS_ACCESS_KEY_ID")
+    AWS_SECRET_ACCESS_KEY = env("AWS_SECRET_ACCESS_KEY")
+
+    AWS_S3_REGION_NAME = "eu-west-1"
+
+    # If using S3-compatible like Cloudflare R2 or MinIO, set the endpoint:
+    #  R2 example: https://<ACCOUNT_ID>.r2.cloudflarestorage.com
+    AWS_S3_ENDPOINT_URL = env("AWS_S3_ENDPOINT_URL", default=None)
+
+    # Recommended: turn off querystring auth so URLs are clean/public
+    AWS_QUERYSTRING_AUTH = False
+    AWS_DEFAULT_ACL = None
+
+    # Cache headers for long-lived static assets
+    AWS_S3_OBJECT_PARAMETERS = {
+        "CacheControl": "public, max-age=31536000, immutable",
+    }
+
+    # Optional: serve via a CDN/custom domain (CNAME to your bucket or CDN)
+    # Example (CloudFront / R2 custom domain): static.aut-icpc.ir
+    AWS_S3_CUSTOM_DOMAIN = env("AWS_S3_CUSTOM_DOMAIN", default=None)
+
+    # STATIC_URL should point to the bucket (or CDN). Prefer CUSTOM_DOMAIN if set.
+    if AWS_S3_CUSTOM_DOMAIN:
+        STATIC_URL = f"https://{AWS_S3_CUSTOM_DOMAIN}/"
+    elif AWS_S3_ENDPOINT_URL:
+        # Virtual-hosted style (most providers). If path-style is required, set AWS_S3_ADDRESSING_STYLE="path" in env.
+        STATIC_URL = f"{AWS_S3_ENDPOINT_URL.rstrip('/')}/{AWS_STORAGE_BUCKET_NAME}/"
+    else:
+        # Plain S3 without custom domain (uses AWS region endpoint)
+        STATIC_URL = f"https://{AWS_STORAGE_BUCKET_NAME}.s3.amazonaws.com/"
+
+    # STATIC_ROOT is not used by django-storages, but keep it for dev
+    STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles")
+else:
+    # Local/static during DEBUG or when USE_CDN_STATIC=0
+    STATIC_URL = "/static/"
+    STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles")
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
