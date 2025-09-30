@@ -42,7 +42,7 @@ jobs:
 
   deploy:
     needs: build-and-push
-    runs-on: self-hosted
+    runs-on: [self-hosted, deploy-acm-2025]
     steps:
       - name: Pull & restart services
         env:
