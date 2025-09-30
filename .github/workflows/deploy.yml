@@ -50,12 +50,14 @@ jobs:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_KEY }}
-          port: ${{ secrets.SSH_PORT || 22 }}
+          script_stop: true
+          envs: SERVER_PATH
           script: |
             set -e
-            cd $SERVER_PATH
+            cd "$SERVER_PATH"
             echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
-            # TODO: Add frontend to this: (I will forget this. I'm sure as fuck)
             docker compose pull web worker beat
             docker compose up -d web worker beat
             docker system prune -f
+        env:
+          SERVER_PATH: /srv/stack
