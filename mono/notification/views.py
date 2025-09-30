@@ -4,20 +4,10 @@ from rest_framework.response import Response
 from rest_framework import status, permissions
 from .serializers import (
     SingleEmailSerializer, OtpRequestSerializer, StatusChangeSerializer,
-    BulkJobCreateSerializer, BulkJobSerializer, HealthResponseSerializer,
+    BulkJobCreateSerializer, BulkJobSerializer,
 )
 from .services import queue_single_email, create_bulk_job, send_otp, send_status_change_email
 
-class HealthView(APIView):
-    permission_classes = []
-
-    @extend_schema(
-        request=None,
-        responses={200: HealthResponseSerializer},
-        description="Health probe for the notification service."
-    )
-    def get(self, request):
-        return Response({"ok": True, "app": "notification"})
 
 class SingleEmailView(APIView):
     permission_classes = [permissions.IsAdminUser]
