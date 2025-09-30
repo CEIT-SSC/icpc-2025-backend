@@ -24,7 +24,7 @@ def healthz(_): return HttpResponse("ok")
 
 urlpatterns = [
     # admin shit
-    path('admin/', admin.site.urls),
+    path('api/admin/', admin.site.urls),
 
     # app shits
     path("api/payment/", include("payment.urls")),
@@ -40,5 +40,5 @@ urlpatterns = [
 
     # swagger shits
     path("api/schema/", SpectacularAPIView.as_view(), name="schema"),
-    path("swagger/", SpectacularSwaggerView.as_view(url_name="schema"))
+    path("api/swagger/", SpectacularSwaggerView.as_view(url_name="schema"))
 ]
