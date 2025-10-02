@@ -57,6 +57,7 @@ INSTALLED_APPS = [
     'payment',
     'storages',
     'whitenoise',
+    'rest_framework_simplejwt.token_blacklist',
 ]
 
 ZARINPAL_MERCHANT_ID = env("ZARINPAL_MERCHANT_ID", default="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx")
