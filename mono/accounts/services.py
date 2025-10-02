@@ -7,7 +7,7 @@ from .utils.otp import create_otp
 from notification.services import send_otp
 
 
-def start_signup(email: str, password: str, first_name: str = "", last_name: str = "", phone_number: str = "") -> str:
+def start_signup(email: str, first_name: str = "", last_name: str = "", phone_number: str = "") -> str:
     user, created = User.objects.get_or_create(email=email)
     if not created and user.is_email_verified:
         raise ValueError("Email already registered")
@@ -15,8 +15,6 @@ def start_signup(email: str, password: str, first_name: str = "", last_name: str
         user.first_name = first_name
         user.last_name = last_name
         user.phone_number = phone_number
-    if password:
-        user.set_password(password)
     user.is_active = True
     user.save()
 

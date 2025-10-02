@@ -6,7 +6,6 @@ User = get_user_model()
 
 class SignupStartSerializer(serializers.Serializer):
     email = serializers.EmailField()
-    password = serializers.CharField(min_length=8, write_only=True)
     first_name = serializers.CharField(required=False, allow_blank=True)
     last_name = serializers.CharField(required=False, allow_blank=True)
     phone_number = serializers.CharField(required=False, allow_blank=True)
