@@ -173,7 +173,6 @@ def approve_or_reject_member(*, request_id: int, token: str, accept: bool) -> Te
                     target_type="COMPETITION",
                     target_id=tr.id,
                     amount=amount,
-                    currency=tr.competition.currency,
                     description=f"Competition {tr.competition.name} #{tr.id}",
                 )
                 tr.payment_link = result.url
@@ -218,7 +217,6 @@ def backoffice_approve_request(tr: TeamRequest) -> TeamRequest:
         target_type="COMPETITION",
         target_id=tr.id,
         amount=amount,
-        currency=tr.competition.currency,
         description=f"Competition {tr.competition.name} #{tr.id}",
     )
     tr.payment_link = result.url

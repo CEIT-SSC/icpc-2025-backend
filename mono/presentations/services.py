@@ -2,6 +2,9 @@ from django.db import transaction
 from django.utils import timezone
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.contrib.auth import get_user_model
+
+from payment.models import Payment
+from payment.services import initiate_payment_for_target
 from .models import Course, Registration
 from notification.services import send_status_change_email
 from accounts.models import UserExtraData
@@ -59,7 +62,19 @@ def submit_registration(*, course: Course, user: User, resume_url: str | None, e
 @transaction.atomic
 def set_status_approved(reg: Registration, *, actor: User | None = None, payment_link: str | None = None) -> Registration:
     reg.status = Registration.Status.APPROVED
-    reg.payment_link = payment_link or reg.payment_link
+    if payment_link is None:
+        payment_result = initiate_payment_for_target(
+            user=reg.user,
+            target_type=Payment.TargetType.COURSE,
+            target_id=reg.course.id,
+            amount=reg.course.price,
+            description=reg.course.slug,
+        )
+        reg.payment_link = payment_result.url
+    else:
+        reg.payment_link = payment_link
+
+    print(f"link: {reg.payment_link}")
     reg.decided_at = timezone.now()
     reg.save(update_fields=["status", "payment_link", "decided_at"])
     send_status_change_email(
@@ -74,6 +89,7 @@ def set_status_final(reg: Registration, *, actor: User | None = None) -> Registr
     reg.status = Registration.Status.FINAL
     reg.decided_at = timezone.now()
     reg.save(update_fields=["status", "decided_at"])
+    print(f"sending to: {reg.user.email}. current user actor: {actor}")
     send_status_change_email(
         to=reg.user.email,
         status_code="COURSE_REQUEST_FINAL",

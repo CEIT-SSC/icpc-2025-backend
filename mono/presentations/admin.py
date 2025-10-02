@@ -30,6 +30,7 @@ class RegistrationAdmin(admin.ModelAdmin):
 
     def approve_selected(self, request, queryset):
         count = 0
+        print(request.user.email)
         for reg in queryset.select_related("course", "user"):
             set_status_approved(reg, actor=request.user)
             count += 1

@@ -83,7 +83,6 @@ def initiate_payment_for_target(
         target_type: str,
         target_id: int,
         amount: int,
-        currency: str = "IRR",
         description: str = "",
 ) -> StartPayResult:
     """
@@ -138,7 +137,6 @@ def initiate_payment_for_target(
             target_type=target_type,
             target_id=target_id,
             amount=amount,
-            currency=currency,
             status=Payment.Status.PG_INITIATE_ERROR,
             zarinpal_message=str(e),
             description=description or "",
@@ -154,7 +152,6 @@ def initiate_payment_for_target(
             target_type=target_type,
             target_id=target_id,
             amount=amount,
-            currency=currency,
             status=Payment.Status.PG_INITIATE_ERROR,
             zarinpal_code=str(code),
             zarinpal_message=d.get("message", ""),
@@ -169,7 +166,6 @@ def initiate_payment_for_target(
         target_type=target_type,
         target_id=target_id,
         amount=amount,
-        currency=currency,
         status=Payment.Status.PENDING,
         authority=authority,
         description=description or "",
