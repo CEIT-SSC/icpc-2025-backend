@@ -63,6 +63,7 @@ def _request_payment(
         "metadata": {"email": email, **({"mobile": mobile} if mobile else {})},
     }
     r = requests.post(url, json=payload, headers=HEADERS, timeout=20)
+    print(f"status code: {r.status_code}, message: {r.text}")
     r.raise_for_status()
     return r.json()
 
