@@ -5,6 +5,7 @@ from .views import (
     RefreshView, LogoutView,
     MeView, ExtraDataView,
 )
+from .views_oauth import GithubLoginView, GithubCallbackView
 
 urlpatterns = [
     path("signup/start/", SignupStartView.as_view()),
@@ -17,4 +18,8 @@ urlpatterns = [
 
     path("me/", MeView.as_view()),
     path("me/extra/", ExtraDataView.as_view()),
+
+    # oauth
+    path("github/login/", GithubLoginView.as_view(), name="github-login"),
+    path("github/callback/", GithubCallbackView.as_view(), name="github-callback"),
 ]

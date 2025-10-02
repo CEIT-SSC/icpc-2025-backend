@@ -19,6 +19,9 @@ from django.http import HttpResponse
 from django.urls import path, include
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 
+from accounts.views_oauth import GithubLoginView, GithubCallbackView
+
+
 # Simple healthcheck api
 def healthz(_): return HttpResponse("ok")
 

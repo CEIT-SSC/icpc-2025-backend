@@ -39,6 +39,7 @@ CSRF_TRUSTED_ORIGINS = [
     "https://aut-icpc.ir",
     "https://www.aut-icpc.ir",
     "http://localhost:8000",
+    "https://github.com"
 ]
 
 # Application definition
@@ -248,3 +249,19 @@ MEDIA_ROOT = BASE_DIR / 'media'
 MEDIA_URL = 'media/'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+GITHUB_CLIENT_ID = env("GITHUB_CLIENT_ID")
+GITHUB_CLIENT_SECRET = env("GITHUB_CLIENT_SECRET")
+GITHUB_REDIRECT_URI = env(
+    "GITHUB_REDIRECT_URI",
+    default="https://aut-icpc.ir/api/accounts/github/callback/",
+)
+
+OAUTH_STATE_COOKIE = {
+    "key": "oauth_state",
+    "max_age": 300,
+    "httponly": True,
+    "secure": True,
+    "samesite": "Lax",
+    "path": "/api/accounts/github/",
+}
