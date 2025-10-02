@@ -35,6 +35,11 @@ DEBUG = True
 
 # TODO: Change this
 ALLOWED_HOSTS = ['*']
+CSRF_TRUSTED_ORIGINS = [
+    "https://aut-icpc.ir",
+    "https://www.aut-icpc.ir",
+    "http://localhost:8000",
+]
 
 # Application definition
 
