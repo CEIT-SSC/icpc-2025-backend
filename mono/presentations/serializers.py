@@ -29,7 +29,6 @@ class CourseSerializer(serializers.ModelSerializer):
 
 class RegistrationCreateSerializer(serializers.Serializer):
     course_id = serializers.IntegerField()
-    resume_url = serializers.URLField(required=False, allow_blank=True)
     extra_answers = serializers.DictField(child=serializers.JSONField(), required=False)
 
 class RegistrationSerializer(serializers.ModelSerializer):
