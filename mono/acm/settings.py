@@ -31,7 +31,7 @@ else:
 SECRET_KEY = env('SECRET_KEY', default='django-insecure-wci8i*h_0lxjng1cw!mi0taj4v)h2z=b03-a6s8pliv573m!bd')
 
 # TODO: SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = False
+DEBUG = True
 
 # TODO: Change this
 ALLOWED_HOSTS = ['*']
