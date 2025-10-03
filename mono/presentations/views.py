@@ -4,6 +4,7 @@ from django.contrib.auth import get_user_model
 from django.shortcuts import get_object_or_404
 from drf_spectacular.utils import extend_schema, OpenApiResponse
 from rest_framework import generics, permissions, status
+from django.core.exceptions import ValidationError
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -60,14 +61,17 @@ class RegistrationCreateView(APIView):
         description="Submit a registration for a course. Also persists extra answers to UserExtraData."
     )
     def post(self, request):
-        s = RegistrationCreateSerializer(data=request.data)
-        s.is_valid(raise_exception=True)
-        data = s.validated_data
-        course = get_object_or_404(Course, id=data["course_id"], is_active=True)
-        reg = submit_registration(
-            course=course,
-            user=request.user,
-            child_ids=data.get("child_ids"),
-            extra_updates=data.get("extra_answers"),
-        )
-        return Response(RegistrationSerializer(reg).data, status=status.HTTP_200_OK)
+        try:
+            s = RegistrationCreateSerializer(data=request.data)
+            s.is_valid(raise_exception=True)
+            data = s.validated_data
+            course = get_object_or_404(Course, id=data["course_id"], is_active=True)
+            reg = submit_registration(
+                course=course,
+                user=request.user,
+                child_ids=data.get("child_ids"),
+                extra_updates=data.get("extra_answers"),
+            )
+            return Response(RegistrationSerializer(reg).data, status=status.HTTP_200_OK)
+        except ValidationError as e:
+            return Response({"error": str(e.message)}, status=status.HTTP_400_BAD_REQUEST)
