@@ -108,6 +108,7 @@ REST_FRAMEWORK = {
         "rest_framework.filters.SearchFilter",
         "rest_framework.filters.OrderingFilter",
     ],
+    "EXCEPTION_HANDLER": "acm.exceptions.custom_exception_handler",
 }
 
 SIMPLE_JWT = {

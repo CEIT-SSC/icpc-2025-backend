@@ -5,9 +5,11 @@ from dataclasses import dataclass
 from typing import Optional, List, Dict
 from django.conf import settings
 from django.db import transaction
-from django.utils import timezone
-from django.core.exceptions import ValidationError, PermissionDenied
+
 from django.contrib.auth import get_user_model
+
+from acm.exceptions import CustomAPIException
+from acm import error_codes as EC
 
 from .models import Payment
 from .domain_hooks import on_payment_success, on_payment_failure
@@ -43,7 +45,7 @@ def _unverified_list() -> List[Dict]:
     try:
         r = requests.get(url, headers={"accept": "application/json"}, timeout=15)
         r.raise_for_status()
-        data = r.json().get("data", {})
+        data = r.json().get("data", {}) or {}
         if str(data.get("code")) != "100":
             return []
         return data.get("authorities", []) or []
@@ -52,7 +54,7 @@ def _unverified_list() -> List[Dict]:
 
 
 def _request_payment(
-        *, merchant_id: str, amount: int, description: str, email: str, mobile: Optional[str] = None
+    *, merchant_id: str, amount: int, description: str, email: str, mobile: Optional[str] = None
 ) -> dict:
     url = f"{Z_BASE}/request.json"
     payload = {
@@ -63,7 +65,8 @@ def _request_payment(
         "metadata": {"email": email, **({"mobile": mobile} if mobile else {})},
     }
     r = requests.post(url, json=payload, headers=HEADERS, timeout=20)
-    print(f"status code: {r.status_code}, message: {r.text}")
+    # optional debug:
+    # print(f"status code: {r.status_code}, message: {r.text}")
     r.raise_for_status()
     return r.json()
 
@@ -79,12 +82,12 @@ def _verify_payment(*, merchant_id: str, amount: int, authority: str) -> dict:
 # ---- Public API ----
 @transaction.atomic
 def initiate_payment_for_target(
-        *,
-        user: User,
-        target_type: str,
-        target_id: int,
-        amount: int,
-        description: str = "",
+    *,
+    user: User,
+    target_type: str,
+    target_id: int,
+    amount: int,
+    description: str = "",
 ) -> StartPayResult:
     """
     1) Check existing PENDING payments for the user; if any authority is still unverified at the gateway,
@@ -93,11 +96,19 @@ def initiate_payment_for_target(
     3) Return StartPay URL.
     """
     if not user or not user.is_authenticated:
-        raise PermissionDenied("Authentication required")
+        raise CustomAPIException(
+            code=EC.PAY_AUTH_REQUIRED,
+            message="Authentication required",
+            status_code=401,
+        )
 
     merchant = settings.ZARINPAL_MERCHANT_ID
     if not merchant:
-        raise ValidationError("Payment merchant id not configured")
+        raise CustomAPIException(
+            code=EC.PAY_MERCHANT_NOT_CONFIGURED,
+            message="Payment merchant id not configured",
+            status_code=400,
+        )
 
     # Step 1: verify any outstanding PENDING payments present in unVerified list
     pending = list(Payment.objects.select_for_update().filter(user=user, status=Payment.Status.PENDING))
@@ -106,19 +117,23 @@ def initiate_payment_for_target(
         for p in pending:
             if p.authority and p.authority in authorities_map:
                 v = _verify_payment(merchant_id=merchant, amount=p.amount, authority=p.authority)
-                d = v.get("data", {})
+                d = v.get("data", {}) or {}
                 code = d.get("code")
                 p.zarinpal_code = str(code)
-                p.zarinpal_message = d.get("message", "")
+                p.zarinpal_message = d.get("message", "") or ""
                 if code == 100:
                     p.status = Payment.Status.SUCCESSFUL
-                    p.ref_id = str(d.get("ref_id", ""))
-                    p.card_pan = str(d.get("card_pan", ""))
-                    p.card_hash = str(d.get("card_hash", ""))
+                    p.ref_id = str(d.get("ref_id", "") or "")
+                    p.card_pan = str(d.get("card_pan", "") or "")
+                    p.card_hash = str(d.get("card_hash", "") or "")
                     p.save()
                     # conflict if same purchase already paid
                     if p.target_type == target_type and p.target_id == target_id:
-                        raise ValidationError({"detail": "Conflict: existing successful payment found for this purchase"})
+                        raise CustomAPIException(
+                            code=EC.PAY_EXISTING_SUCCESS,
+                            message="Existing successful payment found for this purchase",
+                            status_code=409,
+                        )
                 else:
                     p.status = Payment.Status.FAILED
                     p.save()
@@ -143,7 +158,11 @@ def initiate_payment_for_target(
             description=description or "",
             metadata={"stage": "request", "exc": str(e)},
         )
-        raise ValidationError({"detail": "Payment gateway error while initiating"})
+        raise CustomAPIException(
+            code=EC.PAY_INIT_FAILED,
+            message="Payment gateway error while initiating",
+            status_code=409,
+        )
 
     d = res.get("data", {}) or {}
     code = d.get("code")
@@ -155,11 +174,15 @@ def initiate_payment_for_target(
             amount=amount,
             status=Payment.Status.PG_INITIATE_ERROR,
             zarinpal_code=str(code),
-            zarinpal_message=d.get("message", ""),
+            zarinpal_message=d.get("message", "") or "",
             description=description or "",
             metadata={"stage": "request", "resp": d},
         )
-        raise ValidationError({"detail": f"Gateway refused: {d.get('message', '')}"})
+        raise CustomAPIException(
+            code=EC.PAY_GATEWAY_REFUSED,
+            message=f"Gateway refused: {d.get('message', '')}",
+            status_code=409,
+        )
 
     authority = d.get("authority")
     pay = Payment.objects.create(
@@ -183,15 +206,23 @@ def verify_by_authority(*, user: User, authority: str) -> Payment:
     On success/failure, updates Payment and triggers domain hooks.
     """
     if not user or not user.is_authenticated:
-        raise PermissionDenied("Authentication required")
+        raise CustomAPIException(
+            code=EC.PAY_AUTH_REQUIRED,
+            message="Authentication required",
+            status_code=401,
+        )
 
     try:
         p = Payment.objects.select_for_update().get(user=user, authority=authority)
     except Payment.DoesNotExist:
-        raise ValidationError("Payment not found for this user/authority")
+        raise CustomAPIException(
+            code=EC.PAY_NOT_FOUND_FOR_USER,
+            message="Payment not found for this user/authority",
+            status_code=404,
+        )
 
     if p.status != Payment.Status.PENDING:
-        # Already processed; no-op
+        # Already processed; return as-is (frontend can branch on status)
         return p
 
     merchant = settings.ZARINPAL_MERCHANT_ID
@@ -207,13 +238,13 @@ def verify_by_authority(*, user: User, authority: str) -> Payment:
     d = res.get("data", {}) or {}
     code = d.get("code")
     p.zarinpal_code = str(code)
-    p.zarinpal_message = d.get("message", "")
+    p.zarinpal_message = d.get("message", "") or ""
 
     if code == 100:
         p.status = Payment.Status.SUCCESSFUL
-        p.ref_id = str(d.get("ref_id", ""))
-        p.card_pan = str(d.get("card_pan", ""))
-        p.card_hash = str(d.get("card_hash", ""))
+        p.ref_id = str(d.get("ref_id", "") or "")
+        p.card_pan = str(d.get("card_pan", "") or "")
+        p.card_hash = str(d.get("card_hash", "") or "")
         p.save()
         on_payment_success(p)
     else:
