@@ -53,7 +53,7 @@ jobs:
           set -e
           cd "$SERVER_PATH"
           echo "$DOCKERHUB_TOKEN" | docker login -u "$DOCKERHUB_USERNAME" --password-stdin
-          docker compose pull web worker beat
-          docker compose down web worker beat
-          docker compose up -d web worker beat
+          docker compose pull
+          docker compose down
+          docker compose up -d
           docker system prune -f
