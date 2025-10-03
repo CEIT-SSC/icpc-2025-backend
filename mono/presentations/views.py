@@ -67,6 +67,7 @@ class RegistrationCreateView(APIView):
         reg = submit_registration(
             course=course,
             user=request.user,
+            child_ids=data.get("child_ids"),
             extra_updates=data.get("extra_answers"),
         )
         return Response(RegistrationSerializer(reg).data, status=status.HTTP_200_OK)

@@ -6,6 +6,7 @@ from django.utils.text import slugify
 
 User = settings.AUTH_USER_MODEL
 
+
 class Presenter(models.Model):
     full_name = models.CharField(max_length=120)
     bio = models.TextField(blank=True)
@@ -17,6 +18,7 @@ class Presenter(models.Model):
 
     def __str__(self):
         return self.full_name
+
 
 class Course(models.Model):
     name = models.CharField(max_length=200)
@@ -32,6 +34,18 @@ class Course(models.Model):
     capacity = models.PositiveIntegerField(default=0)
     price = models.IntegerField(validators=[MinValueValidator(0)])
 
+    children = models.ManyToManyField(
+        "self",
+        symmetrical=False,
+        related_name="parents",
+        blank=True,
+    )
+
+    requires_approval = models.BooleanField(
+        default=True,
+        help_text="If off, registrations auto-approve (or finalize if price=0).",
+    )
+
     slug = models.SlugField(max_length=220, unique=True, blank=True)
     is_active = models.BooleanField(default=True)
 
@@ -45,6 +59,7 @@ class Course(models.Model):
 
     def __str__(self):
         return self.name
+
 
 class ScheduleRule(models.Model):
     class Weekday(models.IntegerChoices):
@@ -68,11 +83,12 @@ class ScheduleRule(models.Model):
     def __str__(self):
         return f"{self.get_weekday_display()} {self.start_time}-{self.end_time}"
 
+
 class Registration(models.Model):
     class Status(models.TextChoices):
         SUBMITTED = "SUBMITTED", "Submitted"
-        RESERVED = "RESERVED", "Reserved"  # per spec: if capacity full → RESERVED
-        QUEUED = "QUEUED", "Queued"        # if not full → QUEUED
+        RESERVED = "RESERVED", "Reserved"   # capacity full -> RESERVED
+        QUEUED = "QUEUED", "Queued"         # capacity available -> QUEUED
         APPROVED = "APPROVED", "Approved"
         FINAL = "FINAL", "Finalized"
         REJECTED = "REJECTED", "Rejected"
@@ -100,3 +116,23 @@ class Registration(models.Model):
 
     def __str__(self):
         return f"Reg<{self.user_id}:{self.course.slug}:{self.status}>"
+
+
+class RegistrationItem(models.Model):
+    """
+    Child presentation selection for a given registration.
+    """
+    registration = models.ForeignKey(
+        Registration, on_delete=models.CASCADE, related_name="items"
+    )
+    child_course = models.ForeignKey(
+        Course, on_delete=models.PROTECT, related_name="registration_items"
+    )
+    price = models.IntegerField(validators=[MinValueValidator(0)])
+    created_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        unique_together = ("registration", "child_course")
+
+    def __str__(self):
+        return f"RegItem<{self.registration_id}:{self.child_course.slug}:{self.price}>"
