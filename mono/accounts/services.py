@@ -1,5 +1,4 @@
 from typing import Tuple
-from django.conf import settings
 from rest_framework import status
 from rest_framework_simplejwt.tokens import RefreshToken
 
@@ -7,7 +6,6 @@ from acm import error_codes
 from acm.exceptions import CustomAPIException
 from .models import User
 from .utils.otp import create_otp
-
 from notification.services import send_otp
 
 
@@ -26,6 +24,7 @@ def start_signup(email: str, first_name: str = "", last_name: str = "", phone_nu
                 message="Email already registered",
                 status_code=status.HTTP_400_BAD_REQUEST,
             )
+        # update incomplete profile fields if provided
         if first_name:
             user.first_name = first_name
         if last_name:

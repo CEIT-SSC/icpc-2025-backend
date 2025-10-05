@@ -6,6 +6,7 @@ from .views import (
     MeView, ExtraDataView,
 )
 from .views_oauth import GithubLoginView, GithubCallbackView
+from .views_oauth_cf import CodeforcesLoginView, CodeforcesCallbackView
 
 urlpatterns = [
     path("signup/start/", SignupStartView.as_view()),
@@ -19,7 +20,11 @@ urlpatterns = [
     path("me/", MeView.as_view()),
     path("me/extra/", ExtraDataView.as_view()),
 
-    # oauth
+    # github oauth
     path("github/login/", GithubLoginView.as_view(), name="github-login"),
     path("github/callback/", GithubCallbackView.as_view(), name="github-callback"),
+
+    # codeforces oauth
+    path("codeforces/login/",   CodeforcesLoginView.as_view(),   name="cf-login"),
+    path("codeforces/callback/", CodeforcesCallbackView.as_view(), name="cf-callback"),
 ]

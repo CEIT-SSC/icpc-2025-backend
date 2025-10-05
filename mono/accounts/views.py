@@ -1,12 +1,15 @@
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.db import transaction
-from rest_framework import status, permissions, serializers
+from rest_framework import serializers
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated
 from rest_framework_simplejwt.tokens import RefreshToken
-from drf_spectacular.utils import extend_schema, OpenApiResponse  # <-- add this
+from drf_spectacular.utils import extend_schema, OpenApiResponse
+
+from acm import error_codes
+from acm.exceptions import CustomAPIException
 
 from .serializers import (
     SignupStartSerializer, LoginStartSerializer, OtpVerifySerializer,
@@ -28,7 +31,6 @@ class TokenWithUserResponseSerializer(serializers.Serializer):
 
 class AccessTokenOnlySerializer(serializers.Serializer):
     access = serializers.CharField()
-
 # --------------------------------------------------------------
 
 COOKIE_CONF = settings.REFRESH_TOKEN_COOKIE
@@ -74,7 +76,12 @@ class SignupVerifyView(APIView):
         s.is_valid(raise_exception=True)
         rec = verify_otp(s.validated_data["token"], s.validated_data["code"])
         if not rec or rec.intent != "signup":
-            return Response({"detail": "Invalid or expired OTP"}, status=400)
+            # unified API error shape
+            raise CustomAPIException(
+                code=error_codes.ACC_INVALID_OTP,
+                message="Invalid or expired OTP",
+                status_code=400,
+            )
         user = User.objects.select_for_update().get(id=rec.user_id)
         user.is_email_verified = True
         user.save(update_fields=["is_email_verified"])
@@ -94,10 +101,8 @@ class LoginStartView(APIView):
     def post(self, request):
         s = LoginStartSerializer(data=request.data)
         s.is_valid(raise_exception=True)
-        try:
-            token = start_login(**s.validated_data)
-        except ValueError as e:
-            return Response({"detail": str(e)}, status=400)
+        # start_login already raises CustomAPIException with proper codes
+        token = start_login(**s.validated_data)
         return Response({"otp_token": token}, status=200)
 
 class LoginVerifyView(APIView):
@@ -116,7 +121,11 @@ class LoginVerifyView(APIView):
         s.is_valid(raise_exception=True)
         rec = verify_otp(s.validated_data["token"], s.validated_data["code"])
         if not rec or rec.intent != "login":
-            return Response({"detail": "Invalid or expired OTP"}, status=400)
+            raise CustomAPIException(
+                code=error_codes.ACC_INVALID_OTP,
+                message="Invalid or expired OTP",
+                status_code=400,
+            )
         user = User.objects.get(id=rec.user_id)
         if not user.is_email_verified:
             user.is_email_verified = True
@@ -140,13 +149,25 @@ class RefreshView(APIView):
     def post(self, request):
         token = request.COOKIES.get(COOKIE_CONF["key"])
         if not token:
-            return Response({"detail": "No refresh token"}, status=401)
+            raise CustomAPIException(
+                code=error_codes.ACC_NO_REFRESH,
+                message="No refresh token",
+                status_code=401,
+            )
         try:
             rt = RefreshToken(token)
         except Exception:
-            return Response({"detail": "Invalid refresh"}, status=401)
+            raise CustomAPIException(
+                code=error_codes.ACC_INVALID_REFRESH,
+                message="Invalid refresh",
+                status_code=401,
+            )
         access = str(rt.access_token)
-        rt.blacklist()
+        # If blacklist app is enabled, this is fine. If not, it’s a no-op.
+        try:
+            rt.blacklist()
+        except Exception:
+            pass
         new_rt = RefreshToken.for_user(User.objects.get(id=rt["user_id"]))
         resp = Response({"access": access}, status=200)
         set_refresh_cookie(resp, str(new_rt))
