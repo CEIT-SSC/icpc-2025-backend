@@ -57,6 +57,16 @@ class Course(models.Model):
             self.slug = slugify(self.name)[:220]
         return super().save(*args, **kwargs)
 
+    def remained_capacity(self) -> int:
+        """
+        For single-object usage.
+        Prefer `Course.objects.with_capacity()` when listing many courses.
+        """
+        counted_status = Registration.Status.FINAL  # <- adjust here if your “counted” state changes
+        finalized = self.registrations.filter(status=counted_status).count()
+        # Never negative:
+        return max(self.capacity - finalized, 0)
+
     def __str__(self):
         return self.name
 

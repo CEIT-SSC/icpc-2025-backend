@@ -45,6 +45,7 @@ class CourseSerializer(serializers.ModelSerializer):
             "onsite",
             "classes_count",
             "capacity",
+            "remained_capacity",
             "price",
             "requires_approval",
             "slug",
