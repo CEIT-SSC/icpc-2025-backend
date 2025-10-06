@@ -82,7 +82,6 @@ class RegistrationAdmin(admin.ModelAdmin):
                 "course",
                 "user",
                 "status",
-                "is_final",
                 "payment_link",
                 "rejection_reason",
             )
