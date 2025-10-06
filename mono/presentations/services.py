@@ -8,7 +8,7 @@ from acm import error_codes as EC
 
 from payment.models import Payment
 from payment.services import initiate_payment_for_target
-from .models import Course, Registration, RegistrationItem
+from .models import Course, Registration, RegistrationItem, _is_full_by_count
 from notification.services import send_status_change_email
 from accounts.models import UserExtraData
 
@@ -24,18 +24,11 @@ def _is_full(capacity: int | None, taken: int) -> bool:
 
 
 def _parent_capacity_full(course: Course) -> bool:
-    taken = course.registrations.filter(
-        status__in=[Registration.Status.FINAL]
-    ).count()
-    return _is_full(getattr(course, "capacity", None), taken)
+    return _is_full_by_count(course)
 
 
 def _child_capacity_full(child: Course) -> bool:
-    taken = RegistrationItem.objects.filter(
-        child_course=child,
-        registration__status__in=[Registration.Status.FINAL],
-    ).count()
-    return _is_full(getattr(child, "capacity", None), taken)
+    return _is_full_by_count(child)
 
 
 def _compute_total_amount(reg: Registration) -> int:

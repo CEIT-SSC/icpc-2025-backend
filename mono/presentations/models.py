@@ -7,6 +7,8 @@ from django.utils.text import slugify
 User = settings.AUTH_USER_MODEL
 
 
+
+
 class Presenter(models.Model):
     full_name = models.CharField(max_length=120)
     bio = models.TextField(blank=True)
@@ -58,18 +60,9 @@ class Course(models.Model):
         return super().save(*args, **kwargs)
 
     def remained_capacity(self) -> int:
-        from .models import Registration  # local import to avoid cycles
-
-        finalized_as_parent = self.registrations.filter(
-            status=Registration.Status.FINAL
-        ).count()
-
-        finalized_as_child = self.registration_items.filter(
-            registration__status=Registration.Status.FINAL
-        ).count()
-
-        used = finalized_as_parent + finalized_as_child
-        cap = self.capacity or 0
+        """Remaining seats considering both direct and child purchases."""
+        used = _taken_seats(self)
+        cap = self.capacity
         return max(cap - used, 0)
 
     def __str__(self):
@@ -151,3 +144,26 @@ class RegistrationItem(models.Model):
 
     def __str__(self):
         return f"RegItem<{self.registration_id}:{self.child_course.slug}:{self.price}>"
+
+
+COUNT_STATUSES = [Registration.Status.FINAL]
+
+def _taken_seats(course) -> int:
+    """How many seats of `course` are occupied in COUNT_STATUSES,
+    counting both direct (parent) and child purchases."""
+    direct = Registration.objects.filter(
+        course=course,
+        status__in=COUNT_STATUSES,
+    ).count()
+    as_child = RegistrationItem.objects.filter(
+        child_course=course,
+        registration__status__in=COUNT_STATUSES,
+    ).count()
+    return direct + as_child
+
+def _is_full_by_count(course) -> bool:
+    """True if course capacity is exhausted according to COUNT_STATUSES."""
+    cap = course.capacity
+    if cap == 0:
+        return True
+    return _taken_seats(course) >= cap
