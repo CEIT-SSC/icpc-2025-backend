@@ -152,36 +152,31 @@ def set_status_approved(
     override_amount: int | None = None,
     description: str | None = None,
 ) -> Registration:
-    """
-    Move a registration to APPROVED and create a payment link.
-    Now pushes a *bundle* target_id and attaches reg_id in metadata so
-    verify step can finalize this registration immediately.
-    """
     reg.status = Registration.Status.APPROVED
 
     if payment_link is None:
         amount = override_amount if override_amount is not None else _compute_total_amount(reg)
 
-        parent_id = str(reg.course.id)
-        child_ids = [str(it.child_course_id) for it in reg.items.all()]
-        bundle_target_id = ",".join([parent_id, *child_ids])  # string
+        parent_id = reg.course.id
+        child_ids = list(reg.items.values_list("child_course_id", flat=True))
+        # target_id as a CSV bundle: "parent,child1,child2"
+        bundle_target_id = ",".join([str(parent_id), *map(str, child_ids)])
 
-        metadata = {
+        meta = {
             "reg_id": reg.id,
-            "parent_course_id": reg.course.id,
+            "parent_course_id": parent_id,
             "child_course_ids": child_ids,
-            "bundle": True,
         }
 
-        result = initiate_payment_for_target(
+        payment_result = initiate_payment_for_target(
             user=reg.user,
-            target_type="COURSE_BUNDLE",
-            target_id=bundle_target_id,
+            target_type=Payment.TargetType.COURSE,
+            target_id=bundle_target_id,                # <-- bundle id
             amount=amount,
             description=description or _compose_description(reg),
-            extra_metadata=metadata,
+            extra_metadata=meta,                       # <-- carry reg_id & course ids
         )
-        reg.payment_link = result.url
+        reg.payment_link = payment_result.url
     else:
         reg.payment_link = payment_link
 

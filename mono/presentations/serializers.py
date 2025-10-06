@@ -74,6 +74,7 @@ class RegistrationCreateSerializer(serializers.Serializer):
 
 
 class RegistrationSerializer(serializers.ModelSerializer):
+    course = CourseSerializer(read_only=True)
     items = RegistrationItemSerializer(many=True, read_only=True)
     total_amount = serializers.SerializerMethodField()
 
@@ -104,6 +105,6 @@ class RegistrationSerializer(serializers.ModelSerializer):
         )
 
     def get_total_amount(self, obj: Registration) -> int:
-        base = obj.course.price
-        extra = sum(i.price for i in obj.items.all())
+        base = obj.course.price or 0
+        extra = sum((i.price or 0) for i in obj.items.all())
         return base + extra
