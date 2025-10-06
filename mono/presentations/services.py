@@ -106,10 +106,10 @@ def submit_registration(
 
     # Create or reuse the registration
     reg, created = Registration.objects.get_or_create(course=course, user=user)
-    if (not created) and reg.status in [Registration.Status.APPROVED, Registration.Status.FINAL]:
+    if (not created) and reg.status in [Registration.Status.FINAL]:
         raise CustomAPIException(
             code=EC.REG_ALREADY_FINAL_OR_APPROVED,
-            message="You already have an approved/final registration for this presentation.",
+            message="You already have an approved registration for this presentation.",
             status_code=status.HTTP_409_CONFLICT,
         )
 
