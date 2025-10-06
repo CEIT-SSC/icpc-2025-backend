@@ -18,7 +18,7 @@ else:
 
 # Quick-start development settings - unsuitable for production
 SECRET_KEY = env('SECRET_KEY', default='django-insecure-wci8i*h_0lxjng1cw!mi0taj4v)h2z=b03-a6s8pliv573m!bd')
-DEBUG = True
+DEBUG = False
 
 ALLOWED_HOSTS = ['*']
 CSRF_TRUSTED_ORIGINS = [
