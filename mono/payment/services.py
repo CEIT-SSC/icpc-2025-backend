@@ -1,11 +1,12 @@
 # payment/services.py
 
+from __future__ import annotations
+
 import requests
 from dataclasses import dataclass
-from typing import Optional, List, Dict
+from typing import Optional, List, Dict, Any
 from django.conf import settings
 from django.db import transaction
-
 from django.contrib.auth import get_user_model
 
 from acm.exceptions import CustomAPIException
@@ -38,7 +39,7 @@ def _callback_url() -> str:
 
 def _unverified_list() -> List[Dict]:
     """
-    Fetches the list of unverified authorities from Zarinpal.
+    Fetch the list of unverified authorities from Zarinpal.
     Returns [] on non-100 or network error.
     """
     url = f"{Z_BASE}/unVerified.json"
@@ -65,8 +66,6 @@ def _request_payment(
         "metadata": {"email": email, **({"mobile": mobile} if mobile else {})},
     }
     r = requests.post(url, json=payload, headers=HEADERS, timeout=20)
-    # optional debug:
-    # print(f"status code: {r.status_code}, message: {r.text}")
     r.raise_for_status()
     return r.json()
 
@@ -85,15 +84,18 @@ def initiate_payment_for_target(
     *,
     user: User,
     target_type: str,
-    target_id: int,
+    target_id: str,                      # e.g. "PARENT_ID,CHILD_ID_1,CHILD_ID_2"
     amount: int,
     description: str = "",
+    extra_metadata: Optional[Dict[str, Any]] = None,   # attach {"reg_id": ..., "parent_course_id": ..., "child_course_ids":[...], ...}
 ) -> StartPayResult:
     """
     1) Check existing PENDING payments for the user; if any authority is still unverified at the gateway,
        attempt to verify it. If verification succeeds for SAME target, raise conflict.
     2) Create a new Zarinpal request and persist a PENDING Payment with the returned authority.
     3) Return StartPay URL.
+
+    NOTE: target_id is a string so we can store composite IDs (e.g., "42,101,102").
     """
     if not user or not user.is_authenticated:
         raise CustomAPIException(
@@ -128,7 +130,7 @@ def initiate_payment_for_target(
                     p.card_hash = str(d.get("card_hash", "") or "")
                     p.save()
                     # conflict if same purchase already paid
-                    if p.target_type == target_type and p.target_id == target_id:
+                    if p.target_type == target_type and str(p.target_id) == str(target_id):
                         raise CustomAPIException(
                             code=EC.PAY_EXISTING_SUCCESS,
                             message="Existing successful payment found for this purchase",
@@ -151,12 +153,12 @@ def initiate_payment_for_target(
         Payment.objects.create(
             user=user,
             target_type=target_type,
-            target_id=target_id,
+            target_id=str(target_id),
             amount=amount,
             status=Payment.Status.PG_INITIATE_ERROR,
             zarinpal_message=str(e),
             description=description or "",
-            metadata={"stage": "request", "exc": str(e)},
+            metadata={"stage": "request", "exc": str(e), **(extra_metadata or {})},
         )
         raise CustomAPIException(
             code=EC.PAY_INIT_FAILED,
@@ -170,13 +172,13 @@ def initiate_payment_for_target(
         Payment.objects.create(
             user=user,
             target_type=target_type,
-            target_id=target_id,
+            target_id=str(target_id),
             amount=amount,
             status=Payment.Status.PG_INITIATE_ERROR,
             zarinpal_code=str(code),
             zarinpal_message=d.get("message", "") or "",
             description=description or "",
-            metadata={"stage": "request", "resp": d},
+            metadata={"stage": "request", "resp": d, **(extra_metadata or {})},
         )
         raise CustomAPIException(
             code=EC.PAY_GATEWAY_REFUSED,
@@ -188,12 +190,12 @@ def initiate_payment_for_target(
     pay = Payment.objects.create(
         user=user,
         target_type=target_type,
-        target_id=target_id,
+        target_id=str(target_id),   # store as string
         amount=amount,
         status=Payment.Status.PENDING,
         authority=authority,
         description=description or "",
-        metadata={"fee_type": d.get("fee_type"), "fee": d.get("fee")},
+        metadata={"fee_type": d.get("fee_type"), "fee": d.get("fee"), **(extra_metadata or {})},
     )
     startpay_url = f"https://payment.zarinpal.com/pg/StartPay/{authority}"
     return StartPayResult(url=startpay_url, payment=pay)
@@ -204,6 +206,8 @@ def verify_by_authority(*, user: User, authority: str) -> Payment:
     """
     Verify a payment by authority for the given user (frontend passes authority after redirect).
     On success/failure, updates Payment and triggers domain hooks.
+
+    If metadata includes 'reg_id', finalize that registration (parent+children) immediately.
     """
     if not user or not user.is_authenticated:
         raise CustomAPIException(
@@ -222,10 +226,11 @@ def verify_by_authority(*, user: User, authority: str) -> Payment:
         )
 
     if p.status != Payment.Status.PENDING:
-        # Already processed; return as-is (frontend can branch on status)
+        # Already processed; return as-is
         return p
 
     merchant = settings.ZARINPAL_MERCHANT_ID
+
     try:
         res = _verify_payment(merchant_id=merchant, amount=p.amount, authority=authority)
     except requests.RequestException as e:
@@ -251,5 +256,22 @@ def verify_by_authority(*, user: User, authority: str) -> Payment:
         p.status = Payment.Status.FAILED
         p.save()
         on_payment_failure(p)
+        return p
+
+    # If we know the registration that initiated this payment, finalize it now.
+    try:
+        reg_id = (p.metadata or {}).get("reg_id")
+        if reg_id:
+            from presentations.services import set_status_final  # local import to avoid circulars
+            from presentations.models import Registration
+            reg = (
+                Registration.objects
+                .select_for_update()
+                .select_related("course", "user")
+                .get(id=int(reg_id), user=user)
+            )
+            set_status_final([reg])
+    except Exception:
+        pass
 
     return p

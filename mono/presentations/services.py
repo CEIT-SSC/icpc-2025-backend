@@ -16,12 +16,6 @@ User = get_user_model()
 
 
 def _is_full(capacity: int | None, taken: int) -> bool:
-    """
-    Capacity rules:
-      - None => unlimited (never full)
-      - 0    => closed (always full)
-      - >0   => full when taken >= capacity
-    """
     if capacity is None:
         return False
     if capacity == 0:
@@ -37,10 +31,6 @@ def _parent_capacity_full(course: Course) -> bool:
 
 
 def _child_capacity_full(child: Course) -> bool:
-    """
-    A child seat is taken when a Registration that includes this child is
-    APPROVED or FINAL.
-    """
     taken = RegistrationItem.objects.filter(
         child_course=child,
         registration__status__in=[Registration.Status.APPROVED, Registration.Status.FINAL],
@@ -71,13 +61,10 @@ def submit_registration(
     resume_url: str | None = None,
 ) -> Registration:
     """
-    Create/replace a user's registration for a parent course with selected children.
-
-    Behavior:
-      - Do NOT block when full.
-      - If parent OR any child is full => set RESERVED and force approval (even if requires_approval=False).
-      - Else QUEUED.
-      - If no approval required AND status is QUEUED => auto-approve/finalize (free) or create payment link.
+    Do NOT block when full.
+    If parent OR any child is full => set RESERVED and force approval.
+    Else QUEUED.
+    If no approval required AND status is QUEUED => auto-approve/finalize (free) or create payment link.
     """
     if (not user.is_authenticated) or (not getattr(user, "is_email_verified", False)):
         raise CustomAPIException(
@@ -88,7 +75,6 @@ def submit_registration(
 
     child_ids = child_ids or []
 
-    # Validate selected children are active and actually belong to this course
     valid_children_qs = course.children.filter(is_active=True, id__in=child_ids)
     valid_children = list(valid_children_qs)
     if len(valid_children) != len(child_ids):
@@ -98,13 +84,11 @@ def submit_registration(
             status_code=status.HTTP_400_BAD_REQUEST,
         )
 
-    # Capacity snapshot
     parent_full = _parent_capacity_full(course)
     full_children = [c for c in valid_children if _child_capacity_full(c)]
     any_child_full = bool(full_children)
-    forced_waitlist = parent_full or any_child_full  # => RESERVED + approval flow
+    forced_waitlist = parent_full or any_child_full
 
-    # Create or reuse the registration
     reg, created = Registration.objects.get_or_create(course=course, user=user)
     if (not created) and reg.status in [Registration.Status.FINAL]:
         raise CustomAPIException(
@@ -113,16 +97,12 @@ def submit_registration(
             status_code=status.HTTP_409_CONFLICT,
         )
 
-    # Update main fields
     reg.resume_url = resume_url or reg.resume_url
     reg.submitted_at = timezone.now()
     reg.rejection_reason = ""
-
-    # Initial status
     reg.status = Registration.Status.RESERVED if forced_waitlist else Registration.Status.QUEUED
     reg.save()
 
-    # Save extra applicant data (best-effort)
     if extra_updates:
         extra, _ = UserExtraData.objects.get_or_create(user=user)
         extra.answers = {**(extra.answers or {}), **extra_updates}
@@ -135,7 +115,6 @@ def submit_registration(
             extra.codeforces_handle = str(extra_updates["codeforces_handle"])[:64]
         extra.save()
 
-    # Refresh children selections
     RegistrationItem.objects.filter(registration=reg).delete()
     for c in valid_children:
         RegistrationItem.objects.create(
@@ -144,7 +123,6 @@ def submit_registration(
             price=c.price,
         )
 
-    # Notify submit
     send_status_change_email(
         to=user.email,
         status_code="COURSE_REQUEST_SUBMITTED",
@@ -155,7 +133,6 @@ def submit_registration(
         },
     )
 
-    # If any capacity is full, or course/child requires approval, do NOT auto-progress.
     requires_approval = bool(getattr(course, "requires_approval", False)) or any(
         getattr(c, "requires_approval", False) for c in valid_children
     ) or forced_waitlist
@@ -175,22 +152,36 @@ def set_status_approved(
     override_amount: int | None = None,
     description: str | None = None,
 ) -> Registration:
+    """
+    Move a registration to APPROVED and create a payment link.
+    Now pushes a *bundle* target_id and attaches reg_id in metadata so
+    verify step can finalize this registration immediately.
+    """
     reg.status = Registration.Status.APPROVED
 
     if payment_link is None:
         amount = override_amount if override_amount is not None else _compute_total_amount(reg)
-        try:
-            payment_result = initiate_payment_for_target(
-                user=reg.user,
-                target_type=Payment.TargetType.COURSE,  # keep existing target type
-                target_id=reg.course.id,
-                amount=amount,
-                description=description or _compose_description(reg),
-            )
-        except CustomAPIException:
-            # Bubble up payment-layer codes (e.g., PAY_INIT_FAILED / PAY_GATEWAY_REFUSED)
-            raise
-        reg.payment_link = payment_result.url
+
+        parent_id = str(reg.course.id)
+        child_ids = [str(it.child_course_id) for it in reg.items.all()]
+        bundle_target_id = ",".join([parent_id, *child_ids])  # string
+
+        metadata = {
+            "reg_id": reg.id,
+            "parent_course_id": reg.course.id,
+            "child_course_ids": child_ids,
+            "bundle": True,
+        }
+
+        result = initiate_payment_for_target(
+            user=reg.user,
+            target_type="COURSE_BUNDLE",
+            target_id=bundle_target_id,
+            amount=amount,
+            description=description or _compose_description(reg),
+            extra_metadata=metadata,
+        )
+        reg.payment_link = result.url
     else:
         reg.payment_link = payment_link
 
@@ -243,12 +234,8 @@ def set_status_rejected(reg: Registration, *, actor: User | None = None) -> Regi
 
 
 def _auto_progress_to_payment(reg: Registration) -> None:
-    """
-    Auto-approve or auto-finalize (if free) when approval is NOT required and status is QUEUED.
-    """
     total = _compute_total_amount(reg)
     if total <= 0:
-        # Free registration — finalize directly
         reg.status = Registration.Status.FINAL
         reg.decided_at = timezone.now()
         reg.payment_link = ""

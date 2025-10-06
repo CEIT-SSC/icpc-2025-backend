@@ -3,6 +3,7 @@ from .models import Payment
 
 def on_payment_success(payment: Payment):
     if payment.target_type == Payment.TargetType.COMPETITION:
+        # TODO: Fix this
         from competitions.models import TeamRequest
         from competitions.services import mark_payment_final
         tr = TeamRequest.objects.get(id=payment.target_id)
@@ -15,6 +16,7 @@ def on_payment_success(payment: Payment):
         set_status_final(list(regs_qs))
 
 def on_payment_failure(payment: Payment):
+    # TODO: Fix this
     if payment.target_type == Payment.TargetType.COMPETITION:
         from competitions.models import TeamRequest
         from competitions.services import mark_payment_rejected
