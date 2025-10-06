@@ -25,7 +25,7 @@ def _is_full(capacity: int | None, taken: int) -> bool:
 
 def _parent_capacity_full(course: Course) -> bool:
     taken = course.registrations.filter(
-        status__in=[Registration.Status.APPROVED, Registration.Status.FINAL]
+        status__in=[Registration.Status.FINAL]
     ).count()
     return _is_full(getattr(course, "capacity", None), taken)
 
@@ -33,7 +33,7 @@ def _parent_capacity_full(course: Course) -> bool:
 def _child_capacity_full(child: Course) -> bool:
     taken = RegistrationItem.objects.filter(
         child_course=child,
-        registration__status__in=[Registration.Status.APPROVED, Registration.Status.FINAL],
+        registration__status__in=[Registration.Status.FINAL],
     ).count()
     return _is_full(getattr(child, "capacity", None), taken)
 
@@ -65,6 +65,9 @@ def submit_registration(
     If parent OR any child is full => set RESERVED and force approval.
     Else QUEUED.
     If no approval required AND status is QUEUED => auto-approve/finalize (free) or create payment link.
+
+    Additionally: prevent buying a course/child that the user already owns (FINAL),
+    even if ownership came through a different parent registration.
     """
     if (not user.is_authenticated) or (not getattr(user, "is_email_verified", False)):
         raise CustomAPIException(
@@ -73,7 +76,7 @@ def submit_registration(
             status_code=status.HTTP_403_FORBIDDEN,
         )
 
-    child_ids = child_ids or []
+    child_ids = list(dict.fromkeys(child_ids or []))
 
     valid_children_qs = course.children.filter(is_active=True, id__in=child_ids)
     valid_children = list(valid_children_qs)
@@ -82,6 +85,38 @@ def submit_registration(
             code=EC.REG_CHILD_INVALID_SELECTION,
             message="One or more selected child presentations are invalid.",
             status_code=status.HTTP_400_BAD_REQUEST,
+        )
+
+    # ----------------------------
+    # ALREADY-OWNED GUARD
+    # ----------------------------
+    # All finalized registrations for this user:
+    finalized_regs = Registration.objects.filter(
+        user=user,
+        status=Registration.Status.FINAL,
+    )
+
+    owned_parent_ids = set(finalized_regs.values_list("course_id", flat=True))
+    owned_child_ids = set(
+        RegistrationItem.objects.filter(registration__in=finalized_regs)
+        .values_list("child_course_id", flat=True)
+    )
+    owned_ids = owned_parent_ids | owned_child_ids
+
+    if course.id in owned_ids:
+        raise CustomAPIException(
+            code=EC.REG_ALREADY_OWNED,
+            message="You already own this presentation.",
+            status_code=status.HTTP_409_CONFLICT,
+        )
+
+    already_owned_children = [c for c in valid_children if c.id in owned_ids]
+    if already_owned_children:
+        names = ", ".join(c.name for c in already_owned_children)
+        raise CustomAPIException(
+            code=EC.REG_CHILD_ALREADY_OWNED,
+            message=f"You already own these selected child presentations: {names}",
+            status_code=status.HTTP_409_CONFLICT,
         )
 
     parent_full = _parent_capacity_full(course)
@@ -141,7 +176,6 @@ def submit_registration(
         _auto_progress_to_payment(reg)
 
     return reg
-
 
 @transaction.atomic
 def set_status_approved(
