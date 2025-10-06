@@ -58,14 +58,19 @@ class Course(models.Model):
         return super().save(*args, **kwargs)
 
     def remained_capacity(self) -> int:
-        """
-        For single-object usage.
-        Prefer `Course.objects.with_capacity()` when listing many courses.
-        """
-        counted_status = Registration.Status.FINAL  # <- adjust here if your “counted” state changes
-        finalized = self.registrations.filter(status=counted_status).count()
-        # Never negative:
-        return max(self.capacity - finalized, 0)
+        from .models import Registration  # local import to avoid cycles
+
+        finalized_as_parent = self.registrations.filter(
+            status=Registration.Status.FINAL
+        ).count()
+
+        finalized_as_child = self.registration_items.filter(
+            registration__status=Registration.Status.FINAL
+        ).count()
+
+        used = finalized_as_parent + finalized_as_child
+        cap = self.capacity or 0
+        return max(cap - used, 0)
 
     def __str__(self):
         return self.name
