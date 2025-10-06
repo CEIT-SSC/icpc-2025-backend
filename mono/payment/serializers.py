@@ -1,17 +1,6 @@
 from rest_framework import serializers
 from .models import Payment
 
-class InitiateSerializer(serializers.Serializer):
-    target_type = serializers.ChoiceField(choices=Payment.TargetType.choices)
-    target_id = serializers.IntegerField()
-    amount = serializers.IntegerField(min_value=1)
-    description = serializers.CharField(required=False, allow_blank=True)
-
-class InitiateResponseSerializer(serializers.Serializer):
-    startpay_url = serializers.URLField()
-    authority = serializers.CharField()
-    payment_id = serializers.IntegerField()
-
 class VerifySerializer(serializers.Serializer):
     authority = serializers.CharField()
 

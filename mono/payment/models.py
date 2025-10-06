@@ -15,7 +15,7 @@ class Payment(models.Model):
 
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="payments")
     target_type = models.CharField(max_length=16, choices=TargetType.choices)
-    target_id = models.PositiveIntegerField()
+    target_id = models.CharField(max_length=256, blank=True, default="")
 
     amount = models.PositiveIntegerField()  # in Tomans/Rials as per your use
 

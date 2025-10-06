@@ -10,8 +10,9 @@ def on_payment_success(payment: Payment):
     elif payment.target_type == Payment.TargetType.COURSE:
         from presentations.models import Registration
         from presentations.services import set_status_final
-        reg = Registration.objects.get(id=payment.target_id)
-        set_status_final(reg)
+        ids = [int(s) for s in payment.target_id.split(",") if s.strip()]
+        regs_qs = Registration.objects.filter(id__in=ids)
+        set_status_final(list(regs_qs))
 
 def on_payment_failure(payment: Payment):
     if payment.target_type == Payment.TargetType.COMPETITION:

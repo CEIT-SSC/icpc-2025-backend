@@ -206,16 +206,21 @@ def set_status_approved(
 
 
 @transaction.atomic
-def set_status_final(reg: Registration, *, actor: User | None = None) -> Registration:
-    reg.status = Registration.Status.FINAL
-    reg.decided_at = timezone.now()
-    reg.save(update_fields=["status", "decided_at"])
+def set_status_final(regs: list[Registration], *, actor: User | None = None) -> list[Registration]:
+    if len(regs) == 0:
+        return regs
+
+    for reg in regs:
+        reg.status = Registration.Status.FINAL
+        reg.decided_at = timezone.now()
+        reg.save(update_fields=["status", "decided_at"])
+
     send_status_change_email(
-        to=reg.user.email,
+        to=regs[0].user.email,
         status_code="COURSE_REQUEST_FINAL",
-        extra={"course": reg.course.name},
+        extra={"course": regs[0].course.name},
     )
-    return reg
+    return regs
 
 
 @transaction.atomic

@@ -8,49 +8,10 @@ from rest_framework.views import APIView
 from drf_spectacular.utils import extend_schema, OpenApiResponse
 
 from .serializers import (
-    InitiateSerializer,
-    InitiateResponseSerializer,
     VerifySerializer,
     PaymentSerializer,
 )
-from .services import initiate_payment_for_target, verify_by_authority
-from .models import Payment
-
-
-class InitiatePaymentView(APIView):
-    permission_classes = [permissions.IsAuthenticated]
-
-    @extend_schema(
-        request=InitiateSerializer,
-        responses={
-            201: InitiateResponseSerializer,
-            401: OpenApiResponse(description="Unauthenticated"),
-            409: OpenApiResponse(description="Conflict or gateway initiate error"),
-        },
-        description="Create a Zarinpal payment for a target (competition/course) and get the StartPay URL."
-    )
-    def post(self, request):
-        s = InitiateSerializer(data=request.data)
-        s.is_valid(raise_exception=True)
-        data = s.validated_data
-        try:
-            result = initiate_payment_for_target(
-                user=request.user,
-                target_type=data["target_type"],
-                target_id=data["target_id"],
-                amount=data["amount"],
-                description=data.get("description", ""),
-            )
-        except Exception as e:
-            return Response({"detail": str(e)}, status=status.HTTP_409_CONFLICT)
-
-        resp = InitiateResponseSerializer({
-            "startpay_url": result.url,
-            "authority": result.payment.authority,
-            "payment_id": result.payment.id,
-        }).data
-        return Response(resp, status=status.HTTP_201_CREATED)
-
+from .services import verify_by_authority
 
 class VerifyPaymentView(APIView):
     permission_classes = [permissions.IsAuthenticated]
