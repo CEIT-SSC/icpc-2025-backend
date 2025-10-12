@@ -11,7 +11,7 @@ from acm import error_codes as EC
 
 from payment.models import Payment
 from payment.services import initiate_payment_for_target
-from .models import Course, Registration, RegistrationItem, _is_full_by_count
+from .models import Course, Registration, RegistrationItem, _is_full_by_count, CourseSession
 from notification.services import send_status_change_email
 from accounts.models import UserExtraData
 from django.conf import settings
@@ -278,6 +278,11 @@ def _auto_progress_to_payment(reg: Registration) -> None:
         )
     else:
         set_status_approved(reg, override_amount=total, description=_compose_description(reg))
+
+def get_course_sessions(user: User, course: Course):
+    if not _user_has_access_to_course(user, course):
+        return None
+    return CourseSession.objects.filter(course=course).values()
 
 
 def _user_has_access_to_course(user, course) -> bool:

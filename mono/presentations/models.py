@@ -145,6 +145,15 @@ class RegistrationItem(models.Model):
     def __str__(self):
         return f"RegItem<{self.registration_id}:{self.child_course.slug}:{self.price}>"
 
+class CourseSession(models.Model):
+    course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name="sessions")
+    date = models.DateField()
+    start_time = models.TimeField()
+    end_time = models.TimeField()
+    is_online = models.BooleanField(default=True)
+    is_onsite = models.BooleanField(default=False)
+    recording_link = models.URLField(blank=True)
+
 
 COUNT_STATUSES = [Registration.Status.FINAL]
 

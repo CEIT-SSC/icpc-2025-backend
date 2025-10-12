@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.utils import timezone
 
-from .models import Course, Presenter, ScheduleRule, Registration
+from .models import Course, Presenter, ScheduleRule, Registration, CourseSession
 from .services import set_status_approved, set_status_rejected, set_status_final
 
 
@@ -21,6 +21,12 @@ class CourseAdmin(admin.ModelAdmin):
     inlines = [ScheduleInline]
     filter_horizontal = ("presenters",)
 
+
+@admin.register(CourseSession)
+class CourseSessionAdmin(admin.ModelAdmin):
+    list_display = ("course", "start_time", "end_time")
+    search_fields = ("course__name", "course__subtitle")
+    list_filter = ("course",)
 
 
 

@@ -14,8 +14,9 @@ from .serializers import (
     CourseSerializer,
     RegistrationCreateSerializer,
     RegistrationSerializer, SkyroomLinkGeneratorSerializer, SkyroomLinkGeneratorResponseSerializer,
+    CourseSessionSerializer, CourseSessionResponseSerializer,
 )
-from .services import submit_registration, create_skyroom_link
+from .services import submit_registration, create_skyroom_link, get_course_sessions
 
 User = get_user_model()
 
@@ -77,6 +78,7 @@ class RegistrationCreateView(APIView):
         except ValidationError as e:
             return Response({"error": str(e.message)}, status=status.HTTP_400_BAD_REQUEST)
 
+
 class SkyroomLinkView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
@@ -105,8 +107,24 @@ class SkyroomLinkView(APIView):
         link = create_skyroom_link(request.user, course)
         if not link:
             return Response(
-                {"detail": "You are not registered for this presentation or it's not within the scheduled time window."},
+                {
+                    "detail": "You are not registered for this presentation or it's not within the scheduled time window."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
         return Response({"url": link}, status=status.HTTP_200_OK)
+
+
+class CourseSessionsView(generics.ListAPIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    @extend_schema(
+        responses={200: CourseSessionResponseSerializer(many=True)},
+        description="List the authenticated user's course sessions."
+    )
+    def get(self, request, slug):
+        course = get_object_or_404(Course, slug=slug, is_active=True)
+        current_sessions = get_course_sessions(request.user, course)
+        if current_sessions is None:
+            return Response(status=status.HTTP_400_BAD_REQUEST, data={"detail": "User's not registered for this course"})
+        return Response(current_sessions, status=status.HTTP_200_OK)

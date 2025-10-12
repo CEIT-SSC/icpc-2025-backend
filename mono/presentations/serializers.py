@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
-from .models import Course, Presenter, ScheduleRule, Registration, RegistrationItem
+from .models import Course, Presenter, ScheduleRule, Registration, RegistrationItem, CourseSession
 
 User = get_user_model()
 
@@ -121,3 +121,12 @@ class SkyroomLinkGeneratorResponseSerializer(serializers.Serializer):
 
     class Meta:
         fields = ("link",)
+
+class CourseSessionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CourseSession
+        fields = "__all__"
+
+
+class CourseSessionResponseSerializer(serializers.Serializer):
+    sessions = CourseSessionSerializer(many=True, read_only=True)
