@@ -1,5 +1,5 @@
 from django.urls import path
-from .views import CourseDetailView, RegistrationCreateView, MyRegistrationsView
+from .views import CourseDetailView, RegistrationCreateView, MyRegistrationsView, SkyroomLinkView
 
 urlpatterns = [
     # Fetch the course by slug (e.g., "algorithms-bootcamp")
@@ -8,4 +8,5 @@ urlpatterns = [
     path("register/", RegistrationCreateView.as_view()),
     # List my registrations
     path("me/registrations/", MyRegistrationsView.as_view()),
+    path("participation/link/", SkyroomLinkView.as_view())
 ]

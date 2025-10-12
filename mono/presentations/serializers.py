@@ -108,3 +108,16 @@ class RegistrationSerializer(serializers.ModelSerializer):
         base = obj.course.price or 0
         extra = sum((i.price or 0) for i in obj.items.all())
         return base + extra
+
+
+class SkyroomLinkGeneratorSerializer(serializers.Serializer):
+    course_id = serializers.CharField(max_length=100)
+
+    class Meta:
+        fields = ("course_id",)
+
+class SkyroomLinkGeneratorResponseSerializer(serializers.Serializer):
+    link = serializers.CharField(max_length=100)
+
+    class Meta:
+        fields = ("link",)

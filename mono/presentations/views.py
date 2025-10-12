@@ -5,6 +5,7 @@ from django.shortcuts import get_object_or_404
 from drf_spectacular.utils import extend_schema, OpenApiResponse
 from rest_framework import generics, permissions, status
 from django.core.exceptions import ValidationError
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -12,9 +13,9 @@ from .models import Course, Registration
 from .serializers import (
     CourseSerializer,
     RegistrationCreateSerializer,
-    RegistrationSerializer,
+    RegistrationSerializer, SkyroomLinkGeneratorSerializer, SkyroomLinkGeneratorResponseSerializer,
 )
-from .services import submit_registration
+from .services import submit_registration, create_skyroom_link
 
 User = get_user_model()
 
@@ -75,3 +76,37 @@ class RegistrationCreateView(APIView):
             return Response(RegistrationSerializer(reg).data, status=status.HTTP_200_OK)
         except ValidationError as e:
             return Response({"error": str(e.message)}, status=status.HTTP_400_BAD_REQUEST)
+
+class SkyroomLinkView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    @extend_schema(
+        request=SkyroomLinkGeneratorSerializer,
+        responses={
+            200: SkyroomLinkGeneratorResponseSerializer,
+            400: OpenApiResponse(description="Validation error"),
+            404: OpenApiResponse(description="Course not found"),
+        },
+        description="Submit a registration for a course. Also persists extra answers to UserExtraData."
+    )
+    def get(self, request):
+        course = None
+        course_slug = request.query_params.get("course")
+        course_id = request.query_params.get("course_id")
+
+        if course_slug:
+            course = Course.objects.filter(slug=course_slug, is_active=True).first()
+        elif course_id:
+            course = Course.objects.filter(id=course_id, is_active=True).first()
+
+        if course is None:
+            return Response({"detail": "Course not found."}, status=status.HTTP_400_BAD_REQUEST)
+
+        link = create_skyroom_link(request.user, course)
+        if not link:
+            return Response(
+                {"detail": "You are not registered for this presentation or it's not within the scheduled time window."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        return Response({"url": link}, status=status.HTTP_200_OK)

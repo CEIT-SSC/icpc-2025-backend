@@ -277,3 +277,8 @@ CODEFORCES_OIDC_DISCOVERY_URL = "https://codeforces.com/.well-known/openid-confi
 CODEFORCES_CLIENT_ID = env("CODEFORCES_CLIENT_ID", default="")
 CODEFORCES_CLIENT_SECRET = env("CODEFORCES_CLIENT_SECRET", default="")
 CODEFORCES_REDIRECT_URI = "https://aut-icpc.ir/api/accounts/codeforces/callback/"
+
+# Skyroom
+SKYROOM_BASEURL = env("SKYROOM_BASEURL", default="")
+SKYROOM_APIKEY = env("SKYROOM_APIKEY", default="")
+SKYROOM_ROOMID = env("SKYROOM_ROOMID", default="")
