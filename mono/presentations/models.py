@@ -146,6 +146,9 @@ class RegistrationItem(models.Model):
         return f"RegItem<{self.registration_id}:{self.child_course.slug}:{self.price}>"
 
 class CourseSession(models.Model):
+    title = models.CharField(max_length=200)
+    subtitle = models.CharField(max_length=200, blank=True)
+    description = models.TextField(blank=True)
     course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name="sessions")
     date = models.DateField()
     start_time = models.TimeField()
