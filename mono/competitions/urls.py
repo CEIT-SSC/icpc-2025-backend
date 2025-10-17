@@ -6,10 +6,10 @@ from .views import (
 )
 
 urlpatterns = [
-    path("<slug:slug>/", CompetitionDetailView.as_view()),
-    path("<slug:slug>/fields/", CompetitionFieldConfigView.as_view()),
     path("request/", TeamRequestCreateView.as_view()),
     path("me/requests/", MyTeamRequestsView.as_view()),
     path("member/approve/", MemberApproveView.as_view()),
     path("request/cancel/", CancelRequestView.as_view()),
+    path("<slug:slug>/", CompetitionDetailView.as_view()),
+    path("<slug:slug>/fields/", CompetitionFieldConfigView.as_view()),
 ]

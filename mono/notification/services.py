@@ -44,3 +44,7 @@ def send_otp(destination: str, code: str, channel: str = "email") -> None:
 def send_status_change_email(to: str, *, status_code: str, extra: dict | None = None) -> None:
     ctx = {"status": status_code, **(extra or {})}
     queue_single_email(to=to, template_code="status_change", context=ctx)
+
+def send_email_with_custom_template(to: str, template: str, status_code: str, extra: dict | None = None) -> None:
+    ctx = {"status": status_code, **(extra or {})}
+    queue_single_email(to=to, template_code=template, context=ctx)

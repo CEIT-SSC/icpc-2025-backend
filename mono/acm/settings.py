@@ -282,3 +282,6 @@ CODEFORCES_REDIRECT_URI = "https://aut-icpc.ir/api/accounts/codeforces/callback/
 SKYROOM_BASEURL = env("SKYROOM_BASEURL", default="")
 SKYROOM_APIKEY = env("SKYROOM_APIKEY", default="")
 SKYROOM_ROOMID = env("SKYROOM_ROOMID", default="")
+
+# Competition
+COMPETITION_APPROVAL_REDIRECT_URL = env("COMPETITION_APPROVAL_REDIRECT_URL", default="https://aut-icpc.ir/DAMN")

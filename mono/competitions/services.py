@@ -11,7 +11,7 @@ from acm.exceptions import CustomAPIException
 from acm import error_codes as EC
 
 from .models import Competition, CompetitionFieldConfig, TeamRequest, TeamMember, FieldRequirement
-from notification.services import send_status_change_email
+from notification.services import send_status_change_email, send_email_with_custom_template
 
 User = get_user_model()
 
@@ -133,20 +133,22 @@ def submit_team_request(
             approval_token_expires_at=expires,
         )
         # email tokenized approval link
-        send_status_change_email(
+        send_email_with_custom_template(
             to=p.get("email", ""),
             status_code="COMPETITION_MEMBER_APPROVAL",
+            template="COMPETITION_MEMBER_APPROVAL",
             extra={
                 "competition": competition.name,
                 "team_name": team_name or "",
-                "action_link": f"/api/competitions/approve?rid={tr.id}&token={token}",
+                "approval_link": f"{settings.COMPETITION_APPROVAL_REDIRECT_URL}?rid={tr.id}&token={token}",
             },
         )
 
     # notify submitter about submission
-    send_status_change_email(
+    send_email_with_custom_template(
         to=submitter.email,
         status_code="COMPETITION_REQUEST_SUBMITTED",
+        template="COMPETITION_REQUEST_SUBMITTED",
         extra={"competition": competition.name, "team_name": team_name or ""},
     )
 
@@ -190,9 +192,10 @@ def approve_or_reject_member(*, request_id: int, token: str, accept: bool) -> Te
             tr.status = TeamRequest.Status.REJECTED
             tr.save(update_fields=["status"])
             # notify submitter
-            send_status_change_email(
+            send_email_with_custom_template(
                 to=tr.submitter.email,
                 status_code="COMPETITION_REQUEST_REJECTED",
+                template="COMPETITION_REQUEST_REJECTED",
                 extra={"competition": tr.competition.name},
             )
         elif not tr.members.filter(approval_status=TeamMember.ApprovalStatus.PENDING).exists():
@@ -200,9 +203,10 @@ def approve_or_reject_member(*, request_id: int, token: str, accept: bool) -> Te
             if tr.competition.requires_backoffice_approval:
                 tr.status = TeamRequest.Status.PENDING_INVESTIGATION
                 tr.save(update_fields=["status"])
-                send_status_change_email(
+                send_email_with_custom_template(
                     to=tr.submitter.email,
                     status_code="COMPETITION_REQUEST_PENDING_INVESTIGATION",
+                    template="COMPETITION_REQUEST_PENDING_INVESTIGATION",
                     extra={"competition": tr.competition.name},
                 )
             else:
@@ -225,9 +229,10 @@ def approve_or_reject_member(*, request_id: int, token: str, accept: bool) -> Te
                 tr.payment_link = result.url
                 tr.status = TeamRequest.Status.PENDING_PAYMENT
                 tr.save(update_fields=["payment_link", "status"])
-                send_status_change_email(
+                send_email_with_custom_template(
                     to=tr.submitter.email,
                     status_code="COMPETITION_REQUEST_PENDING_PAYMENT",
+                    template="COMPETITION_REQUEST_PENDING_PAYMENT",
                     extra={"link": tr.payment_link},
                 )
 
@@ -296,9 +301,10 @@ def backoffice_approve_request(tr: TeamRequest) -> TeamRequest:
     tr.payment_link = result.url
     tr.status = TeamRequest.Status.PENDING_PAYMENT
     tr.save(update_fields=["payment_link", "status"])
-    send_status_change_email(
+    send_email_with_custom_template(
         to=tr.submitter.email,
         status_code="COMPETITION_REQUEST_PENDING_PAYMENT",
+        template="COMPETITION_REQUEST_PENDING_PAYMENT",
         extra={"link": tr.payment_link},
     )
     return tr
@@ -316,9 +322,10 @@ def backoffice_reject_request(tr: TeamRequest, reason: str) -> TeamRequest:
     tr.save(update_fields=["status"])
     # notify all members
     for m in tr.members.all():
-        send_status_change_email(
+        send_email_with_custom_template(
             to=m.email,
             status_code="COMPETITION_REQUEST_REJECTED",
+            template="COMPETITION_REQUEST_REJECTED",
             extra={"competition": tr.competition.name, "reason": reason},
         )
     return tr
@@ -329,9 +336,10 @@ def mark_payment_final(tr: TeamRequest) -> TeamRequest:
     tr.status = TeamRequest.Status.FINAL
     tr.save(update_fields=["status"])
     for m in tr.members.all():
-        send_status_change_email(
+        send_email_with_custom_template(
             to=m.email,
             status_code="COMPETITION_REQUEST_FINAL",
+            template="COMPETITION_REQUEST_FINAL",
             extra={"competition": tr.competition.name},
         )
     return tr
@@ -341,9 +349,10 @@ def mark_payment_final(tr: TeamRequest) -> TeamRequest:
 def mark_payment_rejected(tr: TeamRequest) -> TeamRequest:
     tr.status = TeamRequest.Status.PAYMENT_REJECTED
     tr.save(update_fields=["status"])
-    send_status_change_email(
+    send_email_with_custom_template(
         to=tr.submitter.email,
         status_code="COMPETITION_PAYMENT_REJECTED",
+        template="COMPETITION_PAYMENT_REJECTED",
         extra={"competition": tr.competition.name},
     )
     return tr

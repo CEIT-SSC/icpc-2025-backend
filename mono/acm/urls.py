@@ -20,6 +20,7 @@ from django.urls import path, include
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 
 from accounts.views_oauth import GithubLoginView, GithubCallbackView
+from acm.views_uploads import UploadView
 
 
 # Simple healthcheck api
@@ -43,5 +44,8 @@ urlpatterns = [
 
     # swagger shits
     path("api/schema/", SpectacularAPIView.as_view(), name="schema"),
-    path("api/swagger/", SpectacularSwaggerView.as_view(url_name="schema"))
+    path("api/swagger/", SpectacularSwaggerView.as_view(url_name="schema")),
+
+    # Storage utils
+    path('api/upload/', UploadView.as_view(), name='api-upload'),
 ]
