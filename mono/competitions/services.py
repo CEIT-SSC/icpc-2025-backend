@@ -118,31 +118,35 @@ def submit_team_request(
     expires = now + timedelta(minutes=APPROVAL_TOKEN_TTL_MIN)
     for p in participants:
         token = secrets.token_urlsafe(24)
-        TeamMember.objects.create(
-            request=tr,
-            user=submitter if (p.get("email", "").lower() == (submitter.email or "").lower()) else None,
-            first_name=p.get("first_name", ""),
-            last_name=p.get("last_name", ""),
-            email=p.get("email", ""),
-            phone_number=p.get("phone_number", ""),
-            national_id=p.get("national_id", ""),
-            student_card_image=p.get("student_card_image", ""),
-            national_id_image=p.get("national_id_image", ""),
-            tshirt_size=p.get("tshirt_size", ""),
-            approval_token_hash=_hash_token(token),
-            approval_token_expires_at=expires,
-        )
-        # email tokenized approval link
-        send_email_with_custom_template(
-            to=p.get("email", ""),
-            status_code="COMPETITION_MEMBER_APPROVAL",
-            template="COMPETITION_MEMBER_APPROVAL",
-            extra={
-                "competition": competition.name,
-                "team_name": team_name or "",
-                "approval_link": f"{settings.COMPETITION_APPROVAL_REDIRECT_URL}?rid={tr.id}&token={token}",
-            },
-        )
+        p_email = p.get("email", "")
+
+        if p_email:
+            TeamMember.objects.create(
+                request=tr,
+                user=submitter if (p.get("email", "").lower() == (submitter.email or "").lower()) else None,
+                first_name=p.get("first_name", ""),
+                last_name=p.get("last_name", ""),
+                email=p.get("email", ""),
+                phone_number=p.get("phone_number", ""),
+                national_id=p.get("national_id", ""),
+                student_card_image=p.get("student_card_image", ""),
+                national_id_image=p.get("national_id_image", ""),
+                tshirt_size=p.get("tshirt_size", ""),
+                approval_token_hash=_hash_token(token),
+                approval_token_expires_at=expires,
+                approval_status=TeamMember.ApprovalStatus.PENDING if p_email != submitter.email else TeamMember.ApprovalStatus.APPROVED,
+            )
+            if p_email != submitter.email:
+                send_email_with_custom_template(
+                    to=p_email,
+                    status_code="COMPETITION_MEMBER_APPROVAL",
+                    template="COMPETITION_MEMBER_APPROVAL",
+                    extra={
+                        "competition": competition.name,
+                        "team_name": team_name or "",
+                        "approval_link": f"{settings.COMPETITION_APPROVAL_REDIRECT_URL}?rid={tr.id}&token={token}",
+                    },
+                )
 
     # notify submitter about submission
     send_email_with_custom_template(
