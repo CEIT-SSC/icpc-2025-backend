@@ -26,6 +26,7 @@ HEADERS = {"accept": "application/json", "content-type": "application/json"}
 class StartPayResult:
     url: str
     payment: Payment
+    authority: str
 
 
 # ---- Helpers ----
@@ -198,7 +199,7 @@ def initiate_payment_for_target(
         metadata={"fee_type": d.get("fee_type"), "fee": d.get("fee"), **(extra_metadata or {})},
     )
     startpay_url = f"https://payment.zarinpal.com/pg/StartPay/{authority}"
-    return StartPayResult(url=startpay_url, payment=pay)
+    return StartPayResult(url=startpay_url, payment=pay, authority=authority)
 
 
 @transaction.atomic
@@ -275,3 +276,27 @@ def verify_by_authority(*, user: User, authority: str) -> Payment:
         pass
 
     return p
+
+def startpay(authority: str) -> str:
+    current_payment = Payment.objects.filter(authority=authority).last()
+    if not current_payment:
+        raise CustomAPIException(
+            code=EC.PAY_NOT_FOUND_FOR_USER,
+            message="Payment not found for this user/authority",
+            status_code=404)
+    try:
+        new_payment = initiate_payment_for_target(
+            user=current_payment.user,
+            target_type=current_payment.target_type,
+            target_id=current_payment.target_id,
+            amount=current_payment.amount,
+            description=current_payment.description,
+        )
+    except Exception as e:
+        raise CustomAPIException(
+            message=f"Failed to initiate payment: {e}",
+            code=EC.COMP_PAYMENT_INIT_FAILED,
+            status_code=409
+        )
+    return new_payment.url
+

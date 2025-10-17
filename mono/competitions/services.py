@@ -302,7 +302,7 @@ def backoffice_approve_request(tr: TeamRequest) -> TeamRequest:
             status_code=409,
         )
 
-    tr.payment_link = result.url
+    tr.payment_link = f"{settings.PAYMENT_EMAIL_LINK_BASE_URL}?authority={result.authority}"
     tr.status = TeamRequest.Status.PENDING_PAYMENT
     tr.save(update_fields=["payment_link", "status"])
     send_email_with_custom_template(

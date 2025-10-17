@@ -9,9 +9,10 @@ from drf_spectacular.utils import extend_schema, OpenApiResponse
 
 from .serializers import (
     VerifySerializer,
-    PaymentSerializer,
+    PaymentSerializer, StartPaymentSerializer,
 )
-from .services import verify_by_authority
+from .services import verify_by_authority, startpay
+
 
 class VerifyPaymentView(APIView):
     permission_classes = [permissions.IsAuthenticated]
@@ -43,3 +44,15 @@ class CallbackView(APIView):
         authority = request.GET.get("Authority")
         url = f"{settings.PAYMENT_FRONTEND_RETURN}?authority={authority}" if authority else settings.PAYMENT_FRONTEND_RETURN
         return HttpResponseRedirect(url)
+
+
+class StartpaymentView(APIView):
+    permission_classes = []
+    @extend_schema(
+        parameters=[StartPaymentSerializer],
+        responses={302: OpenApiResponse(description="Redirects to new payment page")}
+    )
+    def get(self, request):
+        authority = request.GET.get("authority")
+        redirection_url = startpay(authority)
+        return HttpResponseRedirect(redirection_url)
