@@ -17,7 +17,7 @@ class MemberApproveResponseSerializer(serializers.Serializer):
 class FieldConfigSerializer(serializers.ModelSerializer):
     class Meta:
         model = CompetitionFieldConfig
-        fields = ("first_name","last_name","national_id","student_card_image","national_id_image","tshirt_size","phone_number","email")
+        fields = ("first_name","last_name","national_id","student_card_image","national_id_image","tshirt_size","phone_number","email", 'student_number', 'university_name')
 
 class ParticipantPayloadSerializer(serializers.Serializer):
     first_name = serializers.CharField()
@@ -28,6 +28,8 @@ class ParticipantPayloadSerializer(serializers.Serializer):
     student_card_image = serializers.URLField(required=False, allow_blank=True)
     national_id_image = serializers.URLField(required=False, allow_blank=True)
     tshirt_size = serializers.CharField(required=False, allow_blank=True)
+    student_number = serializers.CharField(required=False, allow_blank=True)
+    university_name = serializers.CharField(required=False, allow_blank=True)
 
 class TeamRequestCreateSerializer(serializers.Serializer):
     competition_id = serializers.IntegerField()
@@ -37,7 +39,8 @@ class TeamRequestCreateSerializer(serializers.Serializer):
 class TeamMemberSerializer(serializers.ModelSerializer):
     class Meta:
         model = TeamMember
-        fields = ("id","first_name","last_name","email","phone_number","national_id","student_card_image","national_id_image","tshirt_size","approval_status","approval_at")
+        fields = ("id", "first_name", "last_name", "email", "phone_number", "national_id", "student_card_image",
+                  "national_id_image", "tshirt_size", "approval_status", "approval_at", "student_number", "university_name")
 
 class TeamRequestSerializer(serializers.ModelSerializer):
     members = TeamMemberSerializer(many=True, read_only=True)

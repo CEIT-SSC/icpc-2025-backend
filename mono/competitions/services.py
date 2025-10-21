@@ -46,6 +46,7 @@ def validate_participant_payload(cfg: CompetitionFieldConfig | None, payload: di
     for field in [
         "first_name", "last_name", "email", "phone_number",
         "national_id", "student_card_image", "national_id_image", "tshirt_size",
+        'university_name', 'student_number'
     ]:
         mode = need(field)
         has_val = bool(payload.get(field))
@@ -132,6 +133,9 @@ def submit_team_request(
                 student_card_image=p.get("student_card_image", ""),
                 national_id_image=p.get("national_id_image", ""),
                 tshirt_size=p.get("tshirt_size", ""),
+                student_number=p.get("student_number", ""),
+                university_name=p.get("university_name", ""),
+
                 approval_token_hash=_hash_token(token),
                 approval_token_expires_at=expires,
                 approval_status=TeamMember.ApprovalStatus.PENDING if p_email != submitter.email else TeamMember.ApprovalStatus.APPROVED,

@@ -42,11 +42,13 @@ class CompetitionFieldConfig(models.Model):
     first_name = models.CharField(max_length=3, choices=FieldRequirement.choices, default=FieldRequirement.REQUIRED)
     last_name = models.CharField(max_length=3, choices=FieldRequirement.choices, default=FieldRequirement.REQUIRED)
     national_id = models.CharField(max_length=3, choices=FieldRequirement.choices, default=FieldRequirement.OPTIONAL)
+    student_number = models.CharField(max_length=3, choices=FieldRequirement.choices, default=FieldRequirement.OPTIONAL)
     student_card_image = models.CharField(max_length=3, choices=FieldRequirement.choices, default=FieldRequirement.OPTIONAL)
     national_id_image = models.CharField(max_length=3, choices=FieldRequirement.choices, default=FieldRequirement.OPTIONAL)
     tshirt_size = models.CharField(max_length=3, choices=FieldRequirement.choices, default=FieldRequirement.OPTIONAL)
     phone_number = models.CharField(max_length=3, choices=FieldRequirement.choices, default=FieldRequirement.REQUIRED)
     email = models.CharField(max_length=3, choices=FieldRequirement.choices, default=FieldRequirement.REQUIRED)
+    university_name = models.CharField(max_length=3, choices=FieldRequirement.choices, default=FieldRequirement.OPTIONAL)
 
     def __str__(self):
         return f"FieldConfig<{self.competition_id}>"
@@ -95,6 +97,8 @@ class TeamMember(models.Model):
     student_card_image = models.URLField(blank=True)
     national_id_image = models.URLField(blank=True)
     tshirt_size = models.CharField(max_length=10, blank=True)
+    university_name = models.CharField(max_length=120, blank=True)
+    student_number = models.CharField(max_length=15, blank=True)
 
     approval_status = models.CharField(max_length=10, choices=ApprovalStatus.choices, default=ApprovalStatus.PENDING)
     approval_token_hash = models.CharField(max_length=64, blank=True)  # sha256 hex
