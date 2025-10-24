@@ -14,7 +14,8 @@ class Competition(models.Model):
     min_team_size = models.PositiveSmallIntegerField(default=1)
     max_team_size = models.PositiveSmallIntegerField(default=1)
 
-    signup_fee = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    signup_fee_aut = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    signup_fee_base = models.DecimalField(max_digits=10, decimal_places=2, default=0)
 
     requires_backoffice_approval = models.BooleanField(default=True)
 
@@ -72,6 +73,7 @@ class TeamRequest(models.Model):
 
     created_at = models.DateTimeField(default=timezone.now)
     updated_at = models.DateTimeField(auto_now=True)
+    is_aut = models.BooleanField(default=False)
 
     class Meta:
         indexes = [models.Index(fields=["competition", "status"])]

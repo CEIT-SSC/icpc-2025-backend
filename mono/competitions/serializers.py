@@ -7,7 +7,7 @@ User = get_user_model()
 class CompetitionSerializer(serializers.ModelSerializer):
     class Meta:
         model = Competition
-        fields = ("id","name","slug","description","min_team_size","max_team_size","signup_fee","requires_backoffice_approval","is_active")
+        fields = ("id","name","slug","description","min_team_size","max_team_size","signup_fee_aut","signup_fee_base","requires_backoffice_approval","is_active")
 
 class MemberApproveResponseSerializer(serializers.Serializer):
     member = serializers.IntegerField()

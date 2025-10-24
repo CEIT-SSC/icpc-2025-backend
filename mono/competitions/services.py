@@ -219,7 +219,7 @@ def approve_or_reject_member(*, request_id: int, token: str, accept: bool) -> Te
                 )
             else:
                 from payment.services import initiate_payment_for_target
-                amount = int(tr.competition.signup_fee)
+                amount = int(tr.competition.signup_fee_aut if tr.is_aut else tr.competition.signup_fee_base)
                 try:
                     result = initiate_payment_for_target(
                         user=tr.submitter,
@@ -290,7 +290,7 @@ def backoffice_approve_request(tr: TeamRequest) -> TeamRequest:
         )
 
     from payment.services import initiate_payment_for_target  # local import
-    amount = int(tr.competition.signup_fee)
+    amount = int(tr.competition.signup_fee_aut if tr.is_aut else tr.competition.signup_fee_base)
     try:
         result = initiate_payment_for_target(
             user=tr.submitter,

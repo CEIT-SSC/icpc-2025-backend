@@ -12,7 +12,7 @@ class FieldConfigInline(admin.StackedInline):
 
 @admin.register(Competition)
 class CompetitionAdmin(admin.ModelAdmin):
-    list_display = ("name", "slug", "min_team_size", "max_team_size", "signup_fee", "requires_backoffice_approval", "is_active")
+    list_display = ("name", "slug", "min_team_size", "max_team_size", "signup_fee_aut", "signup_fee_base", "requires_backoffice_approval", "is_active")
     search_fields = ("name", "slug")
     inlines = [FieldConfigInline]
 
